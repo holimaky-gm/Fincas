@@ -749,6 +749,13 @@ nav button.on{color:var(--canal);border-top-color:var(--canal)}
   border-top:10px solid var(--ink)}
 #ring{transition:transform .16s linear;transform-origin:50% 50%}
 #needle{transition:transform .16s linear;transform-origin:50% 50%}
+.ruta{background:#0A6A70;color:#fff;border-radius:14px;padding:12px 14px;margin:10px 0}
+.ruta-top{display:flex;align-items:center;gap:12px}
+.ruta-giro{font-size:30px;line-height:1;min-width:34px;text-align:center}
+.ruta-top b{display:block;font-size:16px}
+.ruta-top span#rutaEn{font-size:13px;opacity:.82}
+.ruta-pie{display:flex;justify-content:space-between;margin-top:8px;
+  padding-top:8px;border-top:1px solid rgba(255,255,255,.22);font-size:12px;opacity:.85}
 .readout{
   position:absolute;inset:0;display:flex;flex-direction:column;
   align-items:center;justify-content:center;pointer-events:none;
@@ -923,6 +930,20 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:18px 0}
         <button class="btn wide" id="btnGPS">Activar ubicación</button>
       </div>
 
+      <div class="ruta" id="panelRuta" style="display:none">
+        <div class="ruta-top">
+          <span class="ruta-giro" id="rutaGiro">↑</span>
+          <div>
+            <b id="rutaPaso">Siga derecho</b>
+            <span id="rutaEn">—</span>
+          </div>
+        </div>
+        <div class="ruta-pie">
+          <span id="rutaVia">—</span>
+          <span id="rutaTotal">—</span>
+        </div>
+      </div>
+
       <p class="hint" id="hint">Apunta el celular hacia adelante y camina. La aguja roja marca el punto; el número, los metros que faltan.</p>
 
       <div class="row">
@@ -939,6 +960,7 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:18px 0}
         <button id="mLabels" class="act" title="Nombres"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h10M4 17h7"/></svg></button>
         <button id="mFit" title="Ver todo"><svg viewBox="0 0 24 24"><path d="M3 9V3h6M21 9V3h-6M3 15v6h6M21 15v6h-6"/></svg></button>
         <button id="mBase" title="Fondo del mapa"><svg viewBox="0 0 24 24"><path d="M12 2 2 7l10 5 10-5z"/><path d="M2 12l10 5 10-5"/><path d="M2 17l10 5 10-5"/></svg></button>
+        <button id="mVias" title="Descargar vías para rutas"><svg viewBox="0 0 24 24"><path d="M4 20 L10 4"/><path d="M20 20 L14 4"/><path d="M12 8v2M12 13v2M12 18v2"/></svg></button>
         <button id="mDesc" title="Descargar mapa de la zona"><svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 11l5 5 5-5"/><path d="M4 20h16"/></svg></button>
       </div>
     </section>
@@ -1188,19 +1210,271 @@ document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>irA(b.dataset.v
   g.innerHTML=h;
 })();
 
+/* ---------------------------------------------------------------
+   GIRO CONTINUO
+
+   La brújula entrega 0..359 y vuelve a 0 al pasar el norte. Una
+   rotación CSS no sabe que 359 y 1 son vecinos: toma el camino largo
+   y la aguja pega el salto. Aquí se lleva un ángulo acumulado por
+   elemento y se le suma siempre el giro más corto, así 359→1 son dos
+   grados a la derecha y no 358 a la izquierda.
+   --------------------------------------------------------------- */
+const anguloCont = new WeakMap();
+function girar(el, grados){
+  if(el==null || grados==null) return;
+  let a = anguloCont.get(el);
+  if(a==null) a = grados;
+  else a += ((grados - a + 540) % 360) - 180;   // giro más corto, con signo
+  anguloCont.set(el, a);
+  el.style.transform = 'rotate(' + a.toFixed(1) + 'deg)';
+}
+function girarReset(el, grados){
+  anguloCont.set(el, grados);
+  el.style.transform = 'rotate(' + grados + 'deg)';
+}
+
+/* ---------------------------------------------------------------
+   RUTAS SIN INTERNET
+
+   Se baja una sola vez la red de vías de la zona (OpenStreetMap, vía
+   Overpass) y queda guardada en el teléfono. De ahí en adelante la
+   ruta se calcula aquí mismo, sin consultar nada.
+
+   La ruta va por vías hasta el punto de la red más cercano al
+   destino — en la práctica, la entrada de la finca o el camino
+   interno si está mapeado — y el último tramo queda a campo
+   traviesa, con la aguja marcando el rumbo directo.
+   --------------------------------------------------------------- */
+let G = null;                 // grafo: {lat, lon, adj}
+let rutaActual = null;        // {puntos, metros, pasos, destino}
+let capaCamino = null, ultimoCalculo = 0, origenCalculo = null;
+
+const CLASES = {motorway:.85,trunk:.85,primary:.9,secondary:.95,tertiary:1,
+  unclassified:1.05,residential:1.05,service:1.15,track:1.3,road:1.1,
+  living_street:1.1};
+
+async function cargarGrafo(){
+  try{
+    const g = await Store.get('vias');
+    if(g && g.lat && g.lat.length){ G = g; return true; }
+  }catch(e){}
+  return false;
+}
+
+/* --- descarga y armado ------------------------------------------ */
+async function descargarVias(){
+  if(!navigator.onLine) return aviso('Necesitas señal o wifi para bajar las vías');
+  const bb = bboxFincas();
+  if(!bb) return aviso('No hay fincas ni puntos que cubrir');
+  if(!confirm('Bajar la red de vías de la zona de las fincas.\n\n'+
+              'Se hace una sola vez, con wifi. Después las rutas se\n'+
+              'calculan en el teléfono, sin internet.')) return;
+
+  const clases='motorway|trunk|primary|secondary|tertiary|unclassified|'+
+               'residential|service|track|road|living_street';
+  const q='[out:json][timeout:120];way["highway"~"^('+clases+')$"]('+
+          bb[1].toFixed(5)+','+bb[0].toFixed(5)+','+
+          bb[3].toFixed(5)+','+bb[2].toFixed(5)+');out geom;';
+
+  aviso('Bajando vías…');
+  let datos;
+  try{
+    const r = await fetch('https://overpass-api.de/api/interpreter',
+      {method:'POST', body:'data='+encodeURIComponent(q),
+       headers:{'Content-Type':'application/x-www-form-urlencoded'}});
+    if(!r.ok) throw new Error('respuesta '+r.status);
+    datos = await r.json();
+  }catch(e){ return aviso('No se pudo bajar: '+e.message); }
+
+  const g = armarGrafo(datos.elements||[]);
+  if(!g.lat.length) return aviso('No se encontraron vías en la zona');
+  G = g;
+  try{ await Store.set('vias', g); }catch(e){}
+  aviso(g.lat.length+' cruces y '+g.tramos+' tramos guardados. Las rutas ya sirven sin señal.');
+  if(S.destinoId) recalcular(true);
+}
+
+function armarGrafo(els){
+  const idx = new Map(), lat = [], lon = [], adj = [];
+  let tramos = 0;
+  const clave = (a,b) => a.toFixed(6)+','+b.toFixed(6);
+  const nodo = (a,b) => {
+    const k = clave(a,b);
+    let i = idx.get(k);
+    if(i==null){ i = lat.length; idx.set(k,i); lat.push(a); lon.push(b); adj.push([]); }
+    return i;
+  };
+  for(const e of els){
+    if(e.type!=='way' || !e.geometry || e.geometry.length<2) continue;
+    const f = CLASES[(e.tags&&e.tags.highway)||'road'] || 1.2;
+    let prev = nodo(e.geometry[0].lat, e.geometry[0].lon);
+    for(let i=1;i<e.geometry.length;i++){
+      const cur = nodo(e.geometry[i].lat, e.geometry[i].lon);
+      if(cur===prev) continue;
+      const m = distancia(lat[prev],lon[prev],lat[cur],lon[cur]);
+      adj[prev].push([cur,m,f]); adj[cur].push([prev,m,f]);
+      tramos++; prev = cur;
+    }
+  }
+  return {v:1, lat, lon, adj, tramos, creado:Date.now()};
+}
+
+/* --- búsqueda del camino ---------------------------------------- */
+function nodoCercano(la,lo){
+  if(!G) return -1;
+  let mejor=-1, md=Infinity;
+  for(let i=0;i<G.lat.length;i++){
+    const dy=(G.lat[i]-la), dx=(G.lon[i]-lo)*0.99;
+    const d=dy*dy+dx*dx;
+    if(d<md){ md=d; mejor=i; }
+  }
+  return mejor;
+}
+
+/* Montículo binario: sin él, A* sobre miles de cruces se arrastra. */
+function Monticulo(){
+  const a=[];
+  return {
+    tam:()=>a.length,
+    meter(v,p){ a.push([p,v]); let i=a.length-1;
+      while(i>0){ const j=(i-1)>>1; if(a[j][0]<=a[i][0]) break;
+        [a[i],a[j]]=[a[j],a[i]]; i=j; } },
+    sacar(){ const t=a[0]; const u=a.pop();
+      if(a.length){ a[0]=u; let i=0;
+        for(;;){ const l=2*i+1,r=l+1; let m=i;
+          if(l<a.length&&a[l][0]<a[m][0]) m=l;
+          if(r<a.length&&a[r][0]<a[m][0]) m=r;
+          if(m===i) break; [a[i],a[m]]=[a[m],a[i]]; i=m; } }
+      return t[1]; }
+  };
+}
+
+function aEstrella(ini, fin){
+  if(!G) return null;
+  const n=G.lat.length;
+  /* índices fuera de rango dejaban el rearmado del camino en bucle */
+  if(!n || ini<0 || fin<0 || ini>=n || fin>=n) return null;
+  if(ini===fin) return null;
+  const g=new Float64Array(n).fill(Infinity);
+  const de=new Int32Array(n).fill(-1);
+  const cerrado=new Uint8Array(n);
+  const h=i=>distancia(G.lat[i],G.lon[i],G.lat[fin],G.lon[fin]);
+  const cola=Monticulo();
+  g[ini]=0; cola.meter(ini,h(ini));
+  let visitados=0;
+  while(cola.tam()){
+    const u=cola.sacar();
+    if(cerrado[u]) continue;
+    cerrado[u]=1; visitados++;
+    if(u===fin) break;
+    if(visitados>200000) break;          // freno de seguridad
+    for(const [v,m,f] of G.adj[u]){
+      const alt=g[u]+m*f;
+      if(alt<g[v]){ g[v]=alt; de[v]=u; cola.meter(v,alt+h(v)); }
+    }
+  }
+  if(!isFinite(g[fin])) return null;
+  const camino=[]; let c=fin, tope=n+1;
+  while(c!==-1 && tope-- > 0){ camino.push(c); c=de[c]; }
+  if(tope<=0) return null;                 // cadena rota: mejor sin ruta que colgado
+  camino.reverse();
+  return camino.length>1 ? camino : null;
+}
+
+/* --- indicaciones ------------------------------------------------ */
+function armarPasos(camino, destino){
+  const pts = camino.map(i=>[G.lat[i],G.lon[i]]);
+  const pasos = [];
+  let acumulado = 0;
+  for(let i=1;i<pts.length;i++){
+    acumulado += distancia(pts[i-1][0],pts[i-1][1],pts[i][0],pts[i][1]);
+    if(i===pts.length-1) break;
+    const b1 = rumbo(pts[i-1][0],pts[i-1][1],pts[i][0],pts[i][1]);
+    const b2 = rumbo(pts[i][0],pts[i][1],pts[i+1][0],pts[i+1][1]);
+    let d = ((b2-b1+540)%360)-180;
+    if(Math.abs(d) < 32) continue;                  // curva suave, no es giro
+    pasos.push({en:acumulado, lat:pts[i][0], lon:pts[i][1],
+      giro: d>0?'der':'izq', fuerte: Math.abs(d)>105,
+      texto: (Math.abs(d)>105 ? 'Giro cerrado a la ' : 'Gire a la ')+
+             (d>0?'derecha':'izquierda')});
+    acumulado = 0;
+  }
+  const fin = pts[pts.length-1];
+  const ultimo = distancia(fin[0],fin[1],destino.lat,destino.lon);
+  pasos.push({en:acumulado+ultimo, lat:destino.lat, lon:destino.lon,
+    giro:'fin', texto:'Llegó al punto'});
+  return {pts, pasos, ultimo};
+}
+
+function recalcular(forzar){
+  const d = S.puntos.find(p=>p.id===S.destinoId);
+  if(!G || !d || !S.pos){ rutaActual=null; pintarRuta(); return; }
+  const ahora = Date.now();
+  if(!forzar){
+    if(ahora-ultimoCalculo < 8000) return;
+    if(origenCalculo && distancia(origenCalculo[0],origenCalculo[1],
+        S.pos.lat,S.pos.lon) < 25 && rutaActual && rutaActual.destino===d.id) return;
+  }
+  ultimoCalculo = ahora; origenCalculo=[S.pos.lat,S.pos.lon];
+
+  const a = nodoCercano(S.pos.lat,S.pos.lon);
+  const b = nodoCercano(d.lat,d.lon);
+  const camino = aEstrella(a,b);
+  if(!camino || camino.length<2){ rutaActual=null; pintarRuta(); return; }
+
+  const {pts, pasos, ultimo} = armarPasos(camino, d);
+  let metros = ultimo;
+  for(let i=1;i<pts.length;i++)
+    metros += distancia(pts[i-1][0],pts[i-1][1],pts[i][0],pts[i][1]);
+
+  rutaActual = {puntos:pts, pasos, metros, ultimo, destino:d.id};
+  pintarRuta();
+}
+
+function pintarRuta(){
+  if(!mapa) return;
+  if(capaCamino){ mapa.removeLayer(capaCamino); capaCamino=null; }
+  if(!rutaActual) return;
+  const d = S.puntos.find(p=>p.id===rutaActual.destino);
+  capaCamino = L.layerGroup([
+    L.polyline(rutaActual.puntos,{color:'#0A6A70',weight:6,opacity:.85}),
+    L.polyline([rutaActual.puntos[rutaActual.puntos.length-1],[d.lat,d.lon]],
+      {color:'#C41E5A',weight:4,opacity:.9,dashArray:'8 6'})
+  ]).addTo(mapa);
+}
+
+/* Paso vigente: el primero cuyo punto de giro todavía tengo por delante. */
+function pasoVigente(){
+  if(!rutaActual || !S.pos) return null;
+  let mejor=null, md=Infinity;
+  rutaActual.pasos.forEach((p,i)=>{
+    const m=distancia(S.pos.lat,S.pos.lon,p.lat,p.lon);
+    if(m<md){ md=m; mejor={paso:p, idx:i, falta:m}; }
+  });
+  if(!mejor) return null;
+  /* si ya casi lo piso, el que importa es el siguiente */
+  if(mejor.falta<22 && rutaActual.pasos[mejor.idx+1]){
+    const sig=rutaActual.pasos[mejor.idx+1];
+    return {paso:sig, falta:distancia(S.pos.lat,S.pos.lon,sig.lat,sig.lon)};
+  }
+  return {paso:mejor.paso, falta:mejor.falta};
+}
+
+const FLECHAS={izq:'↰', der:'↱', fin:'◎'};
+
 let ultimoAviso=0;
 function pintarIr(){
   const d = S.puntos.find(p=>p.id===S.destinoId);
   const ring=$('#ring'), needle=$('#needle');
   const hdg = S.heading;
 
-  ring.style.transform = hdg==null ? 'rotate(0deg)' : `rotate(${-hdg}deg)`;
+  if(hdg==null) girarReset(ring,0); else girar(ring,-hdg);
 
   if(!d){
     $('#tgtName').textContent='Sin destino';
     $('#tgtSub').textContent = S.puntos.length? 'Toca para elegir un punto' : 'Primero agrega o importa puntos';
     $('#dist').innerHTML='—<small>m</small>'; $('#brg').textContent='rumbo —';
-    $('#tgtPos').textContent='—'; needle.style.opacity=.18; needle.style.transform='rotate(0deg)';
+    $('#tgtPos').textContent='—'; needle.style.opacity=.18; girarReset(needle,0);
     return;
   }
   needle.style.opacity=1;
@@ -1217,7 +1491,28 @@ function pintarIr(){
   $('#brg').textContent = hdg==null
     ? `rumbo ${Math.round(b)}° ${cardinal(b)} · norte arriba`
     : `rumbo ${Math.round(b)}° ${cardinal(b)}`;
-  needle.style.transform = `rotate(${hdg==null? b : b-hdg}deg)`;
+  girar(needle, hdg==null ? b : b-hdg);
+
+  /* Indicación de ruta, si ya se bajaron las vías */
+  const panel=$('#panelRuta');
+  recalcular(false);
+  if(rutaActual){
+    const pv = pasoVigente();
+    panel.style.display='';
+    $('#rutaGiro').textContent = pv ? (FLECHAS[pv.paso.giro]||'↑') : '↑';
+    $('#rutaPaso').textContent = pv ? pv.paso.texto : 'Siga derecho';
+    const [fn,fu] = fmtDist(pv? pv.falta : 0);
+    $('#rutaEn').textContent = pv && pv.paso.giro!=='fin'
+      ? 'en '+fn+' '+fu : 'a '+fn+' '+fu;
+    const [tn,tu] = fmtDist(rutaActual.metros);
+    $('#rutaTotal').textContent = 'ruta '+tn+' '+tu;
+    const [un,uu] = fmtDist(rutaActual.ultimo);
+    $('#rutaVia').textContent = rutaActual.ultimo>25
+      ? 'últimos '+un+' '+uu+' a pie, sin vía'
+      : 'la vía llega al punto';
+  } else {
+    panel.style.display='none';
+  }
 
   // anillo de precisión, a escala con la distancia mostrada
   const escala = 74/Math.max(m,10);
@@ -1287,7 +1582,13 @@ function escucharBrujula(){
     else if(e.alpha!=null && (e.absolute||e.type==='deviceorientationabsolute')) h=360-e.alpha;
     if(h==null) return;
     const so=(screen.orientation&&screen.orientation.angle)||window.orientation||0;
-    S.heading=(h+so+360)%360;
+    const nuevo=(h+so+360)%360;
+    if(S.heading==null) S.heading=nuevo;
+    else{
+      /* promedio por el lado corto: quita el temblor sin cruzar mal el norte */
+      const d=((nuevo-S.heading+540)%360)-180;
+      S.heading=(S.heading+d*0.3+360)%360;
+    }
     pintarIr();
   };
   window.addEventListener('deviceorientationabsolute',on,true);
@@ -1425,7 +1726,7 @@ function marcarYo(){
     html:`<div style="width:16px;height:16px;border-radius:50%;background:#0F140E;border:3px solid #F6F7F3;
       box-shadow:0 1px 4px rgba(0,0,0,.4);transform:translate(-50%,-50%)"></div>`})}).addTo(capaYo);
   const d=S.puntos.find(p=>p.id===S.destinoId);
-  if(d) L.polyline([[S.pos.lat,S.pos.lon],[d.lat,d.lon]],
+  if(d && !rutaActual) L.polyline([[S.pos.lat,S.pos.lon],[d.lat,d.lon]],
     {color:'#C41E5A',weight:2,dashArray:'7 5',opacity:.85}).addTo(capaRuta);
 }
 function encuadrar(){
@@ -1442,6 +1743,7 @@ $('#mFit').onclick=encuadrar;
 $('#mLabels').onclick=function(){ etiquetas=!etiquetas; this.classList.toggle('act',etiquetas); pintarMapa(); };
 $('#mBase').onclick=()=>{ const b=ponerBase(baseIdx+1); aviso('Fondo: '+b.nombre); };
 $('#mDesc').onclick=descargarZona;
+$('#mVias').onclick=descargarVias;
 $('#btnGPS').onclick=pedirUbicacion;
 
 /* ---------------------------------------------------------------
@@ -1833,6 +2135,7 @@ function refrescar(){ pintarChips(); pintarLista(); pintarIr(); pintarMapa(); }
   if(!S.fincas || !S.fincas.features || !S.fincas.features.length){
     S.fincas = FINCAS_BASE; guardarFincas();
   }
+  cargarGrafo();
   S.destinoId = (await Store.get('destino')) || null;
   iniciarMapa();
   refrescar();
