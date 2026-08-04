@@ -782,6 +782,21 @@ nav button.on{color:var(--canal);border-top-color:var(--canal)}
   padding:8px 14px;font-weight:700;font-size:13px}
 .ruta{background:#0A6A70;color:#fff;border-radius:14px;padding:12px 14px;margin:10px 0}
 .ruta.apagado{background:#5A6155}
+.trz{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--linea)}
+.trz b{display:block;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.trz span:not(:first-child){font-size:11px;opacity:.62}
+.xdel{background:transparent;border:0;color:#C41E5A;font-size:15px;padding:4px 6px;flex:none}
+.medbar{position:absolute;left:9px;right:9px;bottom:9px;z-index:1000;background:var(--papel,#F6F7F3);
+  border:1px solid var(--linea);border-radius:15px;padding:11px 12px;
+  box-shadow:0 6px 24px rgba(0,0,0,.22)}
+.med-lec{display:flex;gap:8px;margin-bottom:9px}
+.med-lec div{flex:1;text-align:center}
+.med-lec b{display:block;font:700 17px var(--mono,ui-monospace),monospace;color:var(--acento)}
+.med-lec span{font-size:9.5px;opacity:.6;letter-spacing:.03em}
+.med-bot{display:flex;gap:7px}
+.med-bot .btn{flex:1;padding:10px 4px;font-size:13px}
+.med-bot .btn.rec{background:#C41E5A;color:#fff}
+.med-ayuda{font-size:11px;opacity:.65;margin:8px 0 0;text-align:center}
 .tags{display:flex;gap:6px;flex-wrap:wrap;margin:7px 0 2px}
 .tags button{border:1.5px solid var(--linea);background:transparent;border-radius:99px;
   padding:7px 12px;font-size:12px;font-weight:600;color:var(--tinta)}
@@ -935,7 +950,7 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:18px 0}
 <body>
 <div id="app">
   <header>
-    <span class="brand">RUMBO<i id="vTag">v8</i></span>
+    <span class="brand">RUMBO<i id="vTag">v9</i></span>
     <span class="where" id="where">buscando señal…</span>
   </header>
 
@@ -1004,11 +1019,29 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:18px 0}
     <!-- ============ MAPA ============ -->
     <section class="view" id="mapa">
       <div id="map"></div>
+      <div class="medbar" id="medbar" style="display:none">
+        <div class="med-lec">
+          <div><b id="medDist">0 m</b><span>RECORRIDO</span></div>
+          <div><b id="medArea">—</b><span>ÁREA</span></div>
+          <div><b id="medN">0</b><span>VÉRTICES</span></div>
+        </div>
+        <div class="med-bot">
+          <button class="btn grey" id="medAqui">+ Aquí</button>
+          <button class="btn grey" id="medGrab">Grabar</button>
+          <button class="btn grey" id="medUndo">Deshacer</button>
+        </div>
+        <div class="med-bot" style="margin-top:7px">
+          <button class="btn" id="medOk">Guardar</button>
+          <button class="btn grey" id="medNo">Salir</button>
+        </div>
+        <p class="med-ayuda" id="medAyuda">Toca el mapa para poner vértices, o camina y usa <b>+ Aquí</b>.</p>
+      </div>
       <div class="mapbtns">
         <button id="mCenter" title="Centrar en mí"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/><path d="M12 1v3M12 20v3M1 12h3M20 12h3"/></svg></button>
         <button id="mLabels" class="act" title="Nombres"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h10M4 17h7"/></svg></button>
         <button id="mFit" title="Ver todo"><svg viewBox="0 0 24 24"><path d="M3 9V3h6M21 9V3h-6M3 15v6h6M21 15v6h-6"/></svg></button>
         <button id="mBase" title="Fondo del mapa"><svg viewBox="0 0 24 24"><path d="M12 2 2 7l10 5 10-5z"/><path d="M2 12l10 5 10-5"/><path d="M2 17l10 5 10-5"/></svg></button>
+        <button id="mMedir" title="Medir o grabar recorrido"><svg viewBox="0 0 24 24"><path d="M2 15 8 9l3 3 5-5 6 6"/><circle cx="8" cy="9" r="1.6"/><circle cx="16" cy="7" r="1.6"/></svg></button>
         <button id="mVias" title="Descargar vías para rutas"><svg viewBox="0 0 24 24"><path d="M4 20 L10 4"/><path d="M20 20 L14 4"/><path d="M12 8v2M12 13v2M12 18v2"/></svg></button>
         <button id="mDesc" title="Descargar mapa de la zona"><svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 11l5 5 5-5"/><path d="M4 20h16"/></svg></button>
       </div>
@@ -1076,7 +1109,7 @@ const NORMAS = {
 };
 const normaDe = k => NORMAS[k] || NORMAS.int;
 
-const VERSION = 'v8';
+const VERSION = 'v9';
 const tipoDe = k => TIPOS[k] || TIPOS.otro;
 
 /* Fondos del mapa. Se ven con señal y quedan guardados para usarlos sin ella.
@@ -1155,12 +1188,14 @@ const S = {
   quien:'',             // quién registra en este teléfono
   filtro:'todos',
   filtroN:null,         // filtro por norma o por vencimiento
+  trazos:[],            // recorridos y áreas medidas
   busca:'',
   vista:'ir'
 };
 
 const guardarPuntos = ()=> Store.set('puntos', S.puntos);
 const guardarVisitas = ()=> Store.set('visitas', S.visitas);
+const guardarTrazos  = ()=> Store.set('trazos', S.trazos);
 const guardarFincas = ()=> Store.set('fincas', S.fincas);
 
 /* ---------------------------------------------------------------
@@ -1619,6 +1654,7 @@ async function textoDiagnostico(){
   L.push('vías para rutas          : '+(G? G.lat.length+' cruces' : 'sin descargar'));
   L.push('guardado en disco        : '+(Store.volatil()? 'NO (solo memoria)' : 'sí'));
   L.push('puntos / fincas          : '+S.puntos.length+' / '+(S.fincas?S.fincas.features.length:0));
+  L.push('trazos guardados         : '+S.trazos.length);
   L.push('visitas / fotos          : '+S.visitas.length+' / '+
          S.visitas.reduce((n,v)=>n+((v.fotos||[]).length),0));
   L.push('brújula                  : '+(S.heading==null? 'sin lectura' : Math.round(S.heading)+'°'));
@@ -1641,6 +1677,29 @@ const ESTADOS = {
   sinacceso:{t:'Sin acceso',    c:'#5C6470', s:'—'}
 };
 const estadoDe = k => ESTADOS[k] || ESTADOS.bien;
+
+/* Área por fórmula del cordón sobre una proyección local en metros.
+   A escala de finca el error de proyectar plano es despreciable, y evita
+   arrastrar una librería entera solo para esto. */
+function areaM2(pts){
+  if(!pts || pts.length<3) return 0;
+  const lat0 = pts.reduce((a,p)=>a+p[0],0)/pts.length;
+  const kx = 111320*Math.cos(rad(lat0)), ky = 110574;
+  let a=0;
+  for(let i=0, j=pts.length-1; i<pts.length; j=i++){
+    a += (pts[j][1]*kx)*(pts[i][0]*ky) - (pts[i][1]*kx)*(pts[j][0]*ky);
+  }
+  return Math.abs(a/2);
+}
+function largoM(pts){
+  let m=0;
+  for(let i=1;i<pts.length;i++) m+=distancia(pts[i-1][0],pts[i-1][1],pts[i][0],pts[i][1]);
+  return m;
+}
+function fmtArea(m2){
+  if(!m2) return '—';
+  return m2<10000 ? Math.round(m2)+' m²' : (m2/10000).toFixed(2)+' ha';
+}
 
 function leerNormas(c){
   return [...c.querySelectorAll('#e_nrm button.on')].map(b=>b.dataset.n);
@@ -1949,6 +2008,108 @@ function hojaPromedio(alTerminar){
   $('#sheet').querySelector('.scrim').addEventListener('click', parar, {once:true});
 }
 
+/* ---------------------------------------------------------------
+   TRAZOS: MEDIR Y GRABAR
+
+   Un recorrido caminado y un área medida son lo mismo por dentro —
+   una lista de coordenadas — así que comparten estructura, mapa,
+   guardado y exportación. Lo que cambia es cómo se llenan: a toques
+   o automáticamente mientras se camina.
+   --------------------------------------------------------------- */
+let midiendo=false, grabando=false, trazoPts=[], capaTrazo=null, ultimoGrab=null;
+
+function abrirMedicion(){
+  midiendo=true; trazoPts=[]; grabando=false; ultimoGrab=null;
+  $('#medbar').style.display='';
+  pintarMedicion();
+  aviso('Toca el mapa o camina con “+ Aquí”');
+}
+function cerrarMedicion(){
+  midiendo=false; grabando=false; trazoPts=[];
+  $('#medbar').style.display='none';
+  $('#medGrab').classList.remove('rec');
+  $('#medGrab').textContent='Grabar';
+  if(capaTrazo){ mapa.removeLayer(capaTrazo); capaTrazo=null; }
+}
+function agregarVertice(lat,lon){
+  trazoPts.push([lat,lon]);
+  pintarMedicion();
+}
+function pintarMedicion(){
+  const m=largoM(trazoPts), a=areaM2(trazoPts);
+  const [n,u]=fmtDist(m);
+  $('#medDist').textContent = trazoPts.length>1 ? n+' '+u : '0 m';
+  $('#medArea').textContent = fmtArea(a);
+  $('#medN').textContent = trazoPts.length;
+
+  if(!mapa) return;
+  if(capaTrazo){ mapa.removeLayer(capaTrazo); capaTrazo=null; }
+  if(!trazoPts.length) return;
+  const capas=[];
+  if(trazoPts.length>2)
+    capas.push(L.polygon(trazoPts,{color:'#C08A1E',weight:2,fillColor:'#C08A1E',fillOpacity:.18}));
+  capas.push(L.polyline(trazoPts,{color:'#C08A1E',weight:4}));
+  trazoPts.forEach((p,i)=>capas.push(L.circleMarker(p,{radius:4,color:'#C08A1E',
+    fillColor:'#fff',fillOpacity:1,weight:2})));
+  capaTrazo=L.layerGroup(capas).addTo(mapa);
+}
+
+/* Grabación automática: solo suma el punto si de verdad avanzó, para no
+   llenar el trazo de cientos de lecturas del mismo sitio. */
+function grabarPaso(){
+  if(!grabando || !S.pos) return;
+  if(ultimoGrab && distancia(ultimoGrab[0],ultimoGrab[1],S.pos.lat,S.pos.lon)<8) return;
+  ultimoGrab=[S.pos.lat,S.pos.lon];
+  agregarVertice(S.pos.lat,S.pos.lon);
+}
+
+function hojaGuardarTrazo(){
+  if(trazoPts.length<2) return aviso('Faltan vértices');
+  const m=largoM(trazoPts), a=areaM2(trazoPts);
+  const fincas = S.fincas? [...new Set(S.fincas.features.map(nombreFinca))].sort() : [];
+  abrirHoja(`
+    <h3>Guardar trazo</h3>
+    <div class="strip" style="margin-bottom:14px">
+      <div><span class="lbl">Recorrido</span><b>${fmtDist(m)[0]} ${fmtDist(m)[1]}</b></div>
+      <div><span class="lbl">Área</span><b>${fmtArea(a)}</b></div>
+    </div>
+    <div class="f"><label class="lbl">Nombre</label>
+      <input id="t_n" placeholder="Franja protectora quebrada norte"></div>
+    <div class="f2">
+      <div class="f"><label class="lbl">Qué es</label><select id="t_c">
+        <option value="area">Área medida</option>
+        <option value="recorrido">Recorrido caminado</option>
+        <option value="linea">Línea / distancia</option>
+      </select></div>
+      <div class="f"><label class="lbl">Finca</label>
+        <input id="t_f" list="dl_tf" placeholder="Finca">
+        <datalist id="dl_tf">${fincas.map(f=>`<option value="${esc(f)}">`).join('')}</datalist></div>
+    </div>
+    <div class="f"><label class="lbl">Observación</label>
+      <textarea id="t_o" rows="2" placeholder="Para qué se midió, qué se encontró…"></textarea></div>
+    <div class="row">
+      <button class="btn grey" data-close>Cancelar</button>
+      <button class="btn" id="t_ok">Guardar</button>
+    </div>`);
+  const c=$('#sheetCard');
+  c.querySelector('#t_c').value = grabando||trazoPts.length>25 ? 'recorrido' : 'area';
+  c.querySelector('#t_ok').onclick=async()=>{
+    const nombre=c.querySelector('#t_n').value.trim();
+    if(!nombre) return aviso('Ponle un nombre');
+    S.trazos.push({
+      id:'t'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),
+      nombre, clase:c.querySelector('#t_c').value,
+      finca:c.querySelector('#t_f').value.trim(),
+      obs:c.querySelector('#t_o').value.trim(),
+      pts:trazoPts.slice(), metros:Math.round(m), area:Math.round(a),
+      cuando:Date.now(), quien:S.quien||''
+    });
+    await guardarTrazos();
+    cerrarHoja(); cerrarMedicion(); pintarMapa();
+    aviso('Trazo guardado');
+  };
+}
+
 let ultimoAviso=0, avisadoLlegada=null;
 function pintarIr(){
   const d = S.puntos.find(p=>p.id===S.destinoId);
@@ -2047,6 +2208,7 @@ function iniciarGPS(){
   navigator.geolocation.watchPosition(p=>{
     const c=p.coords;
     S.pos={lat:c.latitude,lon:c.longitude,acc:c.accuracy,spd:c.speed,hdg:c.heading,t:p.timestamp};
+    if(grabando) grabarPaso();
     if(S.heading==null && c.heading!=null && c.speed>0.6) S.heading=c.heading;
     const a=Math.round(c.accuracy);
     $('#gpsDot').className='dot '+(a<=10?'good':a<=25?'mid':'bad');
@@ -2132,6 +2294,7 @@ function iniciarMapa(){
   capaPuntos=L.featureGroup().addTo(mapa);
   capaYo=L.layerGroup().addTo(mapa);
   mapa.on('click', e=>{
+    if(midiendo){ agregarVertice(e.latlng.lat,e.latlng.lng); return; }
     if(!modoTocar) return;
     modoTocar=false; document.body.style.cursor='';
     editorPunto(null,{lat:e.latlng.lat,lon:e.latlng.lng});
@@ -2189,9 +2352,29 @@ function probarTeselas(){
   }catch(e){}
 }
 
+const CLASE_TRAZO = {
+  area:      {t:'Área medida',       c:'#C08A1E'},
+  recorrido: {t:'Recorrido',         c:'#6A4C93'},
+  linea:     {t:'Línea / distancia', c:'#1565C0'}
+};
+const claseTrazo = k => CLASE_TRAZO[k] || CLASE_TRAZO.area;
+
 function pintarMapa(){
   if(!mapa) return;
   capaFincas.clearLayers(); capaPuntos.clearLayers();
+
+  /* trazos guardados: van en la capa de fincas para que el encuadre
+     "ver todo" también los tenga en cuenta */
+  S.trazos.forEach(t=>{
+    if(!t.pts || t.pts.length<2) return;
+    const col=claseTrazo(t.clase).c;
+    if(t.clase==='area' && t.pts.length>2)
+      L.polygon(t.pts,{color:col,weight:2,fillColor:col,fillOpacity:.15,dashArray:'5 4'})
+        .bindTooltip(t.nombre+' · '+fmtArea(t.area),{sticky:true}).addTo(capaFincas);
+    else
+      L.polyline(t.pts,{color:col,weight:3,opacity:.9,dashArray:'6 5'})
+        .bindTooltip(t.nombre+' · '+fmtDist(t.metros).join(' '),{sticky:true}).addTo(capaFincas);
+  });
 
   if(S.fincas){
     L.geoJSON(S.fincas,{
@@ -2252,6 +2435,26 @@ $('#mBase').onclick=()=>{ const b=ponerBase(baseIdx+1); aviso('Fondo: '+b.nombre
 $('#mDesc').onclick=descargarZona;
 $('#mVias').onclick=descargarVias;
 $('#panelRuta').onclick=()=>{ if(!G) descargarVias(); };
+$('#mMedir').onclick=()=>{ midiendo? cerrarMedicion() : abrirMedicion(); };
+$('#medAqui').onclick=()=>{
+  if(!S.pos) return aviso('Sin posición GPS todavía');
+  agregarVertice(S.pos.lat,S.pos.lon);
+};
+$('#medUndo').onclick=()=>{ trazoPts.pop(); pintarMedicion(); };
+$('#medNo').onclick=()=>{
+  if(trazoPts.length>1 && !confirm('Salir sin guardar el trazo?')) return;
+  cerrarMedicion();
+};
+$('#medOk').onclick=hojaGuardarTrazo;
+$('#medGrab').onclick=function(){
+  grabando=!grabando;
+  this.classList.toggle('rec',grabando);
+  this.textContent = grabando? 'Parar' : 'Grabar';
+  $('#medAyuda').innerHTML = grabando
+    ? 'Grabando. Camina el borde; se marca un punto cada 8 m.'
+    : 'Toca el mapa para poner vértices, o camina y usa <b>+ Aquí</b>.';
+  if(grabando){ ultimoGrab=null; grabarPaso(); aviso('Grabando recorrido'); }
+};
 $('#btnGPS').onclick=pedirUbicacion;
 
 /* ---------------------------------------------------------------
@@ -2627,6 +2830,18 @@ function hojaDatos(){
     <button class="btn grey wide" style="margin-top:8px" data-expvias>Exportar vías para otro celular</button>
     <p class="mini">Bájalas una vez en un celular con wifi y pasa el archivo de vías a los demás. Así no le tocan a cada uno.</p>
 
+    ${S.trazos.length?`<hr class="sep">
+    <span class="lbl">Trazos guardados</span>
+    <div style="margin-top:7px">${S.trazos.slice().sort((a,b)=>b.cuando-a.cuando).map(t=>
+      `<div class="trz" data-t="${t.id}">
+        <span style="width:9px;height:9px;border-radius:3px;background:${claseTrazo(t.clase).c};flex:none"></span>
+        <div style="flex:1;min-width:0">
+          <b>${esc(t.nombre)}</b>
+          <span>${esc(claseTrazo(t.clase).t)}${t.finca?' · '+esc(t.finca):''} · ${t.clase==='area'? fmtArea(t.area) : fmtDist(t.metros).join(' ')}</span>
+        </div>
+        <button class="xdel" data-td="${t.id}" title="Eliminar">✕</button>
+      </div>`).join('')}</div>`:''}
+
     <hr class="sep">
     <span class="lbl">Evidencias</span>
     <div class="strip" style="margin:7px 0 9px">
@@ -2649,6 +2864,8 @@ function hojaDatos(){
 
     <hr class="sep">
     <button class="btn grey wide" data-csvout>Exportar puntos a CSV</button>
+    <button class="btn grey wide" style="margin-top:9px" data-kml>Exportar a KML (Google Earth)</button>
+    <button class="btn grey wide" style="margin-top:9px" data-gjs>Exportar a GeoJSON (QGIS)</button>
     ${nf?`<button class="btn grey wide" style="margin-top:9px" data-delf>Quitar fincas cargadas</button>`:''}
     ${Store.volatil()?`<p class="mini" style="margin-top:14px;color:var(--warn)">Este navegador no está guardando en disco. Exporta el paquete antes de cerrar.</p>`:''}
 
@@ -2663,6 +2880,21 @@ function hojaDatos(){
   let modoCSV=false;
   c.querySelector('[data-exp]').onclick=exportarPaquete;
   c.querySelector('[data-csvout]').onclick=exportarCSV;
+  c.querySelector('[data-kml]').onclick=exportarKML;
+  c.querySelector('[data-gjs]').onclick=exportarGeoJSON;
+  c.querySelectorAll('[data-td]').forEach(b=>b.onclick=async e=>{
+    e.stopPropagation();
+    const t=S.trazos.find(x=>x.id===b.dataset.td); if(!t) return;
+    if(!confirm('¿Eliminar el trazo "'+t.nombre+'"?')) return;
+    S.trazos=S.trazos.filter(x=>x.id!==b.dataset.td);
+    await guardarTrazos(); cerrarHoja(); pintarMapa(); aviso('Trazo eliminado');
+  });
+  c.querySelectorAll('[data-t]').forEach(el=>el.onclick=()=>{
+    const t=S.trazos.find(x=>x.id===el.dataset.t); if(!t||!t.pts.length) return;
+    cerrarHoja(); irA('mapa');
+    setTimeout(()=>{ mapa.invalidateSize();
+      mapa.fitBounds(L.latLngBounds(t.pts).pad(0.2)); },220);
+  });
   c.querySelector('[data-imp]').onclick=()=>{ modoCSV=false; fi.click(); };
   c.querySelector('[data-csv]').onclick=()=>{ modoCSV=true; fi.click(); };
   (async()=>{
@@ -2723,6 +2955,85 @@ function hoy(){ return new Date().toISOString().slice(0,10); }
 /* Informe de evidencias: un solo archivo HTML, con las fotos adentro.
    Se abre en cualquier computador sin instalar nada y se imprime a PDF.
    Es lo que se le entrega al auditor. */
+/* KML porque en la práctica todo el mundo abre esto en Google Earth.
+   GeoJSON es mejor para QGIS, así que salen los dos. */
+function kmlEscape(t){ return String(t==null?'':t)
+  .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function trazosKML(){
+  const cuerpo = S.trazos.map(t=>{
+    const col = claseTrazo(t.clase).c.replace('#','');
+    /* KML usa aabbggrr, al revés del rrggbb de siempre */
+    const abgr = 'ff'+col.slice(4,6)+col.slice(2,4)+col.slice(0,2);
+    const coords = t.pts.map(p=>p[1].toFixed(6)+','+p[0].toFixed(6)+',0').join(' ');
+    const cerrado = t.clase==='area' && t.pts.length>2;
+    const anillo = cerrado
+      ? coords+' '+t.pts[0][1].toFixed(6)+','+t.pts[0][0].toFixed(6)+',0'
+      : coords;
+    const desc = [
+      t.finca? 'Finca: '+t.finca : '',
+      'Recorrido: '+fmtDist(t.metros).join(' '),
+      t.area? 'Área: '+fmtArea(t.area) : '',
+      t.quien? 'Levantó: '+t.quien : '',
+      'Fecha: '+fechaCorta(t.cuando),
+      t.obs||''
+    ].filter(Boolean).join('\n');
+    return '<Placemark><name>'+kmlEscape(t.nombre)+'</name>'
+      + '<description>'+kmlEscape(desc)+'</description>'
+      + '<Style><LineStyle><color>'+abgr+'</color><width>3</width></LineStyle>'
+      + '<PolyStyle><color>66'+abgr.slice(2)+'</color></PolyStyle></Style>'
+      + (cerrado
+          ? '<Polygon><outerBoundaryIs><LinearRing><coordinates>'+anillo
+            +'</coordinates></LinearRing></outerBoundaryIs></Polygon>'
+          : '<LineString><coordinates>'+anillo+'</coordinates></LineString>')
+      + '</Placemark>';
+  }).join('');
+
+  const puntos = S.puntos.map(p=>
+    '<Placemark><name>'+kmlEscape(p.nombre)+'</name>'
+    + '<description>'+kmlEscape([p.finca, tipoDe(p.tipo).t, p.notas].filter(Boolean).join('\n'))+'</description>'
+    + '<Point><coordinates>'+p.lon.toFixed(6)+','+p.lat.toFixed(6)+',0</coordinates></Point>'
+    + '</Placemark>').join('');
+
+  return '<?xml version="1.0" encoding="UTF-8"?>'
+    + '<kml xmlns="http://www.opengis.net/kml/2.2"><Document>'
+    + '<name>Rumbo — '+hoy()+'</name>'
+    + '<Folder><name>Puntos</name>'+puntos+'</Folder>'
+    + '<Folder><name>Trazos</name>'+cuerpo+'</Folder>'
+    + '</Document></kml>';
+}
+
+function trazosGeoJSON(){
+  return {type:'FeatureCollection', features:[
+    ...S.trazos.filter(t=>t.pts&&t.pts.length>1).map(t=>({
+      type:'Feature',
+      properties:{nombre:t.nombre, clase:t.clase, finca:t.finca, obs:t.obs,
+        metros:t.metros, area_m2:t.area, ha:+(t.area/10000).toFixed(4),
+        quien:t.quien, fecha:new Date(t.cuando).toISOString()},
+      geometry: (t.clase==='area'&&t.pts.length>2)
+        ? {type:'Polygon', coordinates:[[...t.pts.map(p=>[p[1],p[0]]), [t.pts[0][1],t.pts[0][0]]]]}
+        : {type:'LineString', coordinates:t.pts.map(p=>[p[1],p[0]])}
+    })),
+    ...S.puntos.map(p=>({
+      type:'Feature',
+      properties:{nombre:p.nombre, tipo:p.tipo, finca:p.finca, notas:p.notas,
+        normas:(p.normas||[]).join('|'), criterio:p.criterio||'', vence:p.vence||''},
+      geometry:{type:'Point', coordinates:[p.lon,p.lat]}
+    }))
+  ]};
+}
+
+function exportarKML(){
+  if(!S.trazos.length && !S.puntos.length) return aviso('No hay nada que exportar');
+  descargar('rumbo-'+hoy()+'.kml', trazosKML(), 'application/vnd.google-earth.kml+xml');
+  aviso('KML listo. Ábrelo en Google Earth.');
+}
+function exportarGeoJSON(){
+  if(!S.trazos.length && !S.puntos.length) return aviso('No hay nada que exportar');
+  descargar('rumbo-'+hoy()+'.geojson', JSON.stringify(trazosGeoJSON(),null,1), 'application/geo+json');
+  aviso('GeoJSON listo. Ábrelo en QGIS.');
+}
+
 /* Las vías pesan y bajarlas golpea un servidor público. Se bajan una vez
    y se pasan por archivo al resto de los celulares. */
 function exportarVias(){
@@ -2813,7 +3124,7 @@ async function informeEvidencias(norma){
 }
 function exportarPaquete(){
   descargar(`rumbo-${hoy()}.json`, JSON.stringify({rumbo:1,fecha:new Date().toISOString(),
-    puntos:S.puntos, fincas:S.fincas, visitas:S.visitas},null,1));
+    puntos:S.puntos, fincas:S.fincas, visitas:S.visitas, trazos:S.trazos},null,1));
   aviso('Paquete exportado (sin fotos: usa el informe para eso)');
 }
 function exportarCSV(){
@@ -2846,6 +3157,11 @@ async function importarJSON(txt){
   let nPtos=0, nFin=0;
   if(j.rumbo){
     if(Array.isArray(j.puntos)){ nPtos=fusionar(j.puntos); }
+    if(Array.isArray(j.trazos)){
+      const hayT=new Set(S.trazos.map(t=>t.id));
+      j.trazos.forEach(t=>{ if(t&&t.id&&!hayT.has(t.id)){ S.trazos.push(t); hayT.add(t.id); } });
+      guardarTrazos();
+    }
     if(Array.isArray(j.visitas)){
       /* fusionar por id: dos practicantes pueden traer visitas distintas
          del mismo punto y las dos tienen que sobrevivir */
@@ -2940,6 +3256,7 @@ function refrescar(){ pintarChips(); pintarLista(); pintarIr(); pintarMapa(); }
     S.fincas = FINCAS_BASE; guardarFincas();
   }
   S.visitas = (await Store.get('visitas')) || [];
+  S.trazos  = (await Store.get('trazos'))  || [];
   S.quien   = (await Store.get('quien')) || '';
   cargarGrafo();
   S.destinoId = (await Store.get('destino')) || null;
