@@ -780,6 +780,32 @@ nav button.on{color:var(--canal);border-top-color:var(--canal)}
 .aviso-act b{flex:1;font-size:14px}
 .aviso-act button{background:#fff;color:#0A6A70;border:0;border-radius:9px;
   padding:8px 14px;font-weight:700;font-size:13px}
+.jornada{background:#1F3A2E;color:#fff;border-radius:14px;padding:12px 14px;margin:10px 0}
+.jn-cab{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.jn-cab b{font-size:15.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.jn-cab span{font-size:11.5px;opacity:.75;white-space:nowrap}
+.jn-bar{height:5px;border-radius:99px;background:rgba(255,255,255,.22);margin:9px 0 10px;overflow:hidden}
+.jn-bar i{display:block;height:100%;background:#8FD3A6;width:0;transition:width .35s}
+.jn-bot{display:flex;gap:8px}
+.jn-bot button{flex:1;border:0;border-radius:9px;padding:9px 6px;font-size:12.5px;font-weight:700}
+#planHecha{background:#8FD3A6;color:#12301F}
+#planVer{background:rgba(255,255,255,.16);color:#fff}
+.chk{display:flex;align-items:center;gap:9px;font-size:13.5px}
+.chk input{width:19px;height:19px}
+.mini-todo{float:right;background:transparent;border:0;color:var(--acento);
+  font-size:11px;font-weight:700;padding:0}
+.par{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--linea)}
+.par .num{width:23px;height:23px;border-radius:50%;background:var(--acento);color:#fff;
+  font:700 11px/23px var(--mono);text-align:center;flex:none}
+.par.ok .num{background:#2E7D4F}
+.par.ok b{text-decoration:line-through;opacity:.5}
+.par .tx{flex:1;min-width:0}
+.par b{display:block;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.par span{font-size:11px;opacity:.62}
+.par .km{font:600 11px var(--mono);opacity:.7;white-space:nowrap}
+.selpar{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--linea)}
+.selpar .mk{width:21px;height:21px;border-radius:6px;border:1.7px solid var(--linea);flex:none}
+.selpar.on .mk{background:var(--acento);border-color:var(--acento)}
 .ruta{background:#0A6A70;color:#fff;border-radius:14px;padding:12px 14px;margin:10px 0}
 .ruta.apagado{background:#5A6155}
 .selfinca{padding:0 14px 4px}
@@ -952,7 +978,7 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:18px 0}
 <body>
 <div id="app">
   <header>
-    <span class="brand">RUMBO<i id="vTag">v12</i></span>
+    <span class="brand">RUMBO<i id="vTag">v13</i></span>
     <span class="where" id="where">buscando señal…</span>
   </header>
 
@@ -996,6 +1022,18 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:18px 0}
         <button class="btn wide" id="btnGPS">Activar ubicación</button>
       </div>
 
+      <div class="jornada" id="panelPlan" style="display:none">
+        <div class="jn-cab">
+          <b id="planParada">—</b>
+          <span id="planCuenta">—</span>
+        </div>
+        <div class="jn-bar"><i id="planBar"></i></div>
+        <div class="jn-bot">
+          <button id="planHecha">Marcar hecha</button>
+          <button id="planVer">Ver paradas</button>
+        </div>
+      </div>
+
       <div class="ruta" id="panelRuta" style="display:none">
         <div class="ruta-top">
           <span class="ruta-giro" id="rutaGiro">↑</span>
@@ -1021,6 +1059,7 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:18px 0}
         <button class="btn grey" id="btnCompartir">Enviar mi ubicación</button>
       </div>
       <button class="btn ghost wide" style="margin-top:9px" id="btnIrCoord">Ir a una coordenada</button>
+      <button class="btn wide" style="margin-top:9px" id="btnPlan">Planear recorrido del día</button>
     </section>
 
     <!-- ============ MAPA ============ -->
@@ -1103,7 +1142,7 @@ const TIPOS = {
   fauna:        {t:'Fauna / bosque',  c:'#6A4C93', s:'FA'},
   otro:         {t:'Otro',            c:'#5A6155', s:'··'}
 };
-const VERSION = 'v12';
+const VERSION = 'v13';
 const tipoDe = k => TIPOS[k] || TIPOS.otro;
 
 /* Fondos del mapa. Se ven con señal y quedan guardados para usarlos sin ella.
@@ -1183,6 +1222,7 @@ const S = {
   filtro:'todos',
   filtroN:null,         // pendientes o por vencer
   finca:'',             // finca aislada
+  plan:null,            // jornada planeada: paradas, orden y avance
   trazos:[],            // recorridos y áreas medidas
   ciclo:'',             // fecha desde la que cuenta el ciclo de auditoría
   busca:'',
@@ -1897,6 +1937,17 @@ function hojaVisita(puntoId){
       acc:S.pos?Math.round(S.pos.acc||0):null, fotos
     });
     await guardarVisitas();
+    /* si estaba en el recorrido, esa parada queda cumplida sola */
+    const act=paradaActual();
+    if(act && ((act.clase==='punto' && act.id===puntoId) ||
+               (act.clase==='trazo' && 'tz_'+act.id===puntoId))){
+      act.hecho=true; act.cuando=Date.now(); await guardarPlan();
+      const sig=paradaActual();
+      if(sig) apuntarAParada();
+      cerrarHoja(); refrescar();
+      return aviso(sig? 'Visita registrada · siguiente: '+sig.nombre
+                      : 'Visita registrada · recorrido terminado');
+    }
     cerrarHoja(); refrescar();
     aviso('Visita registrada');
   };
@@ -2237,6 +2288,378 @@ async function revisarRespaldo(){
   document.body.appendChild(el);
 }
 
+/* ===============================================================
+   PLAN DE RECORRIDO
+
+   Una jornada son varias paradas — puntos y reservorios ya medidos —
+   repartidas en fincas distintas. El orden en que se visiten cambia
+   mucho el tiempo del día.
+
+   Se mide la distancia entre cada par de paradas POR VÍA, usando la
+   red descargada, no en línea recta: en Urabá dos sitios cercanos en
+   el mapa pueden estar a media hora si la carretera da vuelta.
+
+   Con pocas paradas se resuelve el orden exacto; con muchas, una
+   aproximación buena. Y todo se puede cambiar sobre la marcha.
+   =============================================================== */
+
+/* Cualquier cosa a la que se pueda ir: un punto, o el centro de un
+   área medida (un reservorio, por ejemplo). */
+function paradasDisponibles(){
+  const out=[];
+  S.puntos.forEach(p=>out.push({clase:'punto', id:p.id, nombre:p.nombre,
+    lat:p.lat, lon:p.lon, finca:p.finca||'Sin finca', detalle:tipoDe(p.tipo).t}));
+  S.trazos.forEach(t=>{
+    if(!t.pts || !t.pts.length) return;
+    const [la,lo]=centroTrazo(t);
+    out.push({clase:'trazo', id:t.id, nombre:t.nombre, lat:la, lon:lo,
+      finca:t.finca||'Sin finca',
+      detalle:claseTrazo(t.clase).t+(t.area? ' · '+fmtArea(t.area):'')});
+  });
+  return out;
+}
+
+/* Distancia por vía entre dos nodos ya enganchados a la red.
+   Devuelve null si no hay camino: el que llama decide qué hacer. */
+function largoVial(ni, nj){
+  const cam=aEstrella(ni,nj);
+  if(!cam) return null;
+  let m=0;
+  for(let k=1;k<cam.length;k++)
+    m+=distancia(G.lat[cam[k-1]],G.lon[cam[k-1]],G.lat[cam[k]],G.lon[cam[k]]);
+  return m;
+}
+
+/* Matriz de distancias entre origen y paradas. Se cede el hilo cada
+   tanto para que la pantalla no se congele en celulares lentos. */
+async function matrizDistancias(origen, paradas, avisar){
+  const n=paradas.length;
+  const nodos = G ? [origen, ...paradas].map(p=>nodoCercano(p.lat,p.lon)) : null;
+  const D=[]; for(let i=0;i<=n;i++) D.push(new Float64Array(n+1));
+  const todos=[origen,...paradas];
+  let hechas=0, total=(n+1)*n/2;
+
+  for(let i=0;i<=n;i++){
+    for(let j=i+1;j<=n;j++){
+      let m=null;
+      if(nodos && nodos[i]>=0 && nodos[j]>=0) m=largoVial(nodos[i],nodos[j]);
+      if(m==null){
+        /* sin vías o sin camino: la recta, penalizada, porque en la
+           práctica siempre se anda más de lo que mide en línea */
+        m=distancia(todos[i].lat,todos[i].lon,todos[j].lat,todos[j].lon)*1.35;
+      }
+      D[i][j]=D[j][i]=m;
+      if(++hechas%12===0){
+        if(avisar) avisar(Math.round(hechas/total*100));
+        await new Promise(r=>setTimeout(r,0));
+      }
+    }
+  }
+  return D;
+}
+
+/* Orden exacto por programación dinámica sobre subconjuntos.
+   Con 14 paradas son unos 40 ms: da el óptimo de verdad, no una
+   aproximación, y cubre cualquier jornada realista. */
+function ordenExacto(D, n, volver){
+  const FULL=1<<n, INF=Infinity;
+  const dp=[], de=[];
+  for(let m=0;m<FULL;m++){ dp.push(new Float64Array(n).fill(INF)); de.push(new Int8Array(n).fill(-1)); }
+  for(let i=0;i<n;i++) dp[1<<i][i]=D[0][i+1];
+  for(let m=1;m<FULL;m++){
+    for(let i=0;i<n;i++){
+      if(!(m&(1<<i)) || dp[m][i]===INF) continue;
+      const base=dp[m][i];
+      for(let j=0;j<n;j++){
+        if(m&(1<<j)) continue;
+        const nm=m|(1<<j), alt=base+D[i+1][j+1];
+        if(alt<dp[nm][j]){ dp[nm][j]=alt; de[nm][j]=i; }
+      }
+    }
+  }
+  let mejor=INF, fin=-1;
+  for(let i=0;i<n;i++){
+    const t=dp[FULL-1][i]+(volver? D[i+1][0] : 0);
+    if(t<mejor){ mejor=t; fin=i; }
+  }
+  if(fin<0) return null;
+  const orden=[]; let m=FULL-1, c=fin;
+  while(c>=0){ orden.push(c); const pr=de[m][c]; m^=(1<<c); c=pr; }
+  orden.reverse();
+  return {orden, total:mejor};
+}
+
+/* Para jornadas grandes: vecino más cercano y luego 2-opt, que
+   deshace los cruces. Queda a pocos puntos porcentuales del óptimo. */
+function ordenAproximado(D, n, volver){
+  const costo=o=>{
+    let t=D[0][o[0]+1];
+    for(let i=1;i<o.length;i++) t+=D[o[i-1]+1][o[i]+1];
+    return t+(volver? D[o[o.length-1]+1][0] : 0);
+  };
+  const dosOpt=o=>{
+    let mejor=costo(o), cambio=true, vueltas=0;
+    while(cambio && vueltas++<80){
+      cambio=false;
+      for(let i=0;i<n-1;i++) for(let j=i+1;j<n;j++){
+        const alt=o.slice(0,i).concat(o.slice(i,j+1).reverse(), o.slice(j+1));
+        const c=costo(alt);
+        if(c<mejor-0.5){ mejor=c; o.splice(0,n,...alt); cambio=true; }
+      }
+    }
+    return mejor;
+  };
+
+  /* El vecino más cercano depende mucho de por dónde arranque, y a
+     veces arranca pésimo. Se prueban todos los arranques posibles. */
+  let mejorOrden=null, mejorTotal=Infinity;
+  for(let ini=0; ini<n; ini++){
+    const usado=new Uint8Array(n), o=[ini];
+    usado[ini]=1;
+    let act=ini+1;
+    for(let k=1;k<n;k++){
+      let mej=-1, md=Infinity;
+      for(let j=0;j<n;j++) if(!usado[j] && D[act][j+1]<md){ md=D[act][j+1]; mej=j; }
+      usado[mej]=1; o.push(mej); act=mej+1;
+    }
+    const t=dosOpt(o);
+    if(t<mejorTotal){ mejorTotal=t; mejorOrden=o.slice(); }
+  }
+  return {orden:mejorOrden, total:mejorTotal};
+}
+
+async function optimizar(origen, paradas, volver, avisar){
+  if(!paradas.length) return null;
+  if(paradas.length===1)
+    return {orden:[0], total:distancia(origen.lat,origen.lon,paradas[0].lat,paradas[0].lon)};
+  const D=await matrizDistancias(origen, paradas, avisar);
+  const n=paradas.length;
+  const r = n<=14 ? ordenExacto(D,n,volver) : ordenAproximado(D,n,volver);
+  if(!r) return null;
+  r.tramos = r.orden.map((p,i)=> i===0 ? D[0][p+1] : D[r.orden[i-1]+1][p+1]);
+  if(volver) r.regreso = D[r.orden[r.orden.length-1]+1][0];
+  r.exacto = n<=14;
+  return r;
+}
+
+function hojaPlanear(){
+  const disp=paradasDisponibles();
+  if(!disp.length) return aviso('Primero agrega puntos o mide áreas');
+  const sel=new Set();
+  let volver=false;
+  const fincas=[...new Set(disp.map(p=>p.finca))].sort();
+
+  function fila(p){
+    const k=p.clase+':'+p.id;
+    return `<div class="selpar ${sel.has(k)?'on':''}" data-k="${k}">
+      <span class="mk"></span>
+      <div style="flex:1;min-width:0">
+        <b style="display:block;font-size:13.5px">${esc(p.nombre)}</b>
+        <span style="font-size:11px;opacity:.62">${esc(p.detalle)}${cubiertoPar(p)?' · ya visitado':''}</span>
+      </div></div>`;
+  }
+  const cuerpo=()=>fincas.map(f=>{
+    const ps=disp.filter(p=>p.finca===f);
+    return `<div class="grp" style="margin-top:10px">${esc(f)}
+      <button class="mini-todo" data-finca="${esc(f)}">todos</button></div>`+ps.map(fila).join('');
+  }).join('');
+
+  abrirHoja(`
+    <h3>Planear recorrido</h3>
+    <p class="mini" style="margin:-6px 0 6px">Marca todo lo que hay que visitar hoy. Pueden ser puntos y reservorios de fincas distintas.</p>
+    <div id="pl_lista" style="max-height:46vh;overflow:auto;margin-bottom:12px">${cuerpo()}</div>
+    <label class="chk"><input type="checkbox" id="pl_volver"> Volver al punto de partida al terminar</label>
+    <button class="btn wide" style="margin-top:12px" id="pl_ok">Calcular el mejor orden</button>
+    <p class="mini" id="pl_est" style="margin-top:9px">Nada seleccionado.</p>`);
+
+  const c=$('#sheetCard');
+  const est=c.querySelector('#pl_est');
+  function actualizar(){
+    est.textContent = sel.size
+      ? sel.size+' parada'+(sel.size===1?'':'s')+' · '+(sel.size<=14
+          ? 'se calculará el orden exacto'
+          : 'se calculará un orden muy bueno (son muchas)')
+      : 'Nada seleccionado.';
+  }
+  c.querySelector('#pl_lista').onclick=e=>{
+    const todo=e.target.closest('[data-finca]');
+    if(todo){
+      const ps=disp.filter(p=>p.finca===todo.dataset.finca);
+      const faltan=ps.some(p=>!sel.has(p.clase+':'+p.id));
+      ps.forEach(p=>{ const k=p.clase+':'+p.id; faltan? sel.add(k) : sel.delete(k); });
+      c.querySelectorAll('.selpar').forEach(el=>el.classList.toggle('on',sel.has(el.dataset.k)));
+      return actualizar();
+    }
+    const el=e.target.closest('[data-k]'); if(!el) return;
+    const k=el.dataset.k;
+    sel.has(k)? sel.delete(k) : sel.add(k);
+    el.classList.toggle('on',sel.has(k));
+    actualizar();
+  };
+  c.querySelector('#pl_volver').onchange=e=>{ volver=e.target.checked; };
+  c.querySelector('#pl_ok').onclick=async()=>{
+    if(!sel.size) return aviso('Marca al menos una parada');
+    if(!S.pos) return aviso('Sin posición GPS: no se sabe desde dónde salir');
+    const paradas=disp.filter(p=>sel.has(p.clase+':'+p.id));
+    const b=c.querySelector('#pl_ok');
+    b.disabled=true; b.textContent='Calculando…';
+    const r=await optimizar({lat:S.pos.lat,lon:S.pos.lon}, paradas, volver,
+      pct=>{ b.textContent='Calculando… '+pct+'%'; });
+    if(!r){ b.disabled=false; b.textContent='Calcular el mejor orden'; return aviso('No se pudo calcular'); }
+    hojaPlanResumen(paradas, r, volver);
+  };
+  actualizar();
+}
+
+const cubiertoPar = p => p.clase==='punto' ? cubierto(p.id) : false;
+
+function hojaPlanResumen(paradas, r, volver){
+  const orden=r.orden.map(i=>paradas[i]);
+  const total=r.total;
+  abrirHoja(`
+    <h3>Orden propuesto</h3>
+    <div class="strip" style="margin-bottom:12px">
+      <div><span class="lbl">Paradas</span><b>${orden.length}</b></div>
+      <div><span class="lbl">Recorrido</span><b>${fmtDist(total).join(' ')}</b></div>
+    </div>
+    <div style="max-height:44vh;overflow:auto">
+      ${orden.map((p,i)=>`<div class="par">
+        <span class="num">${i+1}</span>
+        <div class="tx"><b>${esc(p.nombre)}</b><span>${esc(p.finca)} · ${esc(p.detalle)}</span></div>
+        <span class="km">${fmtDist(r.tramos[i]).join(' ')}</span>
+      </div>`).join('')}
+      ${volver?`<div class="par"><span class="num">↩</span>
+        <div class="tx"><b>Regreso al punto de partida</b></div>
+        <span class="km">${fmtDist(r.regreso).join(' ')}</span></div>`:''}
+    </div>
+    <p class="mini" style="margin-top:10px">${r.exacto
+      ? 'Es el orden más corto posible, no una aproximación.'
+      : 'Son muchas paradas para probarlas todas; este orden está muy cerca del mejor.'}
+      ${G? 'Las distancias van por vía.' : 'Sin vías descargadas: distancias en línea recta, aproximadas.'}</p>
+    <button class="btn wide" style="margin-top:12px" id="pr_ok">Iniciar recorrido</button>
+    <button class="btn grey wide" style="margin-top:9px" id="pr_no">Volver a elegir</button>`);
+  const c=$('#sheetCard');
+  c.querySelector('#pr_ok').onclick=async()=>{
+    S.plan={paradas:orden.map(p=>({...p,hecho:false})), volver,
+      inicio:{lat:S.pos.lat,lon:S.pos.lon}, creado:Date.now(), total};
+    await guardarPlan();
+    cerrarHoja(); irA('ir'); apuntarAParada(); refrescar();
+    aviso('Recorrido iniciado · '+orden.length+' paradas');
+  };
+  c.querySelector('#pr_no').onclick=hojaPlanear;
+}
+
+/* Apunta la navegación a la parada pendiente. Si es un área, se crea
+   un destino temporal en su centro para poder usar la misma brújula. */
+function apuntarAParada(){
+  const p=paradaActual();
+  if(!p){ return; }
+  if(p.clase==='punto'){ S.destinoId=p.id; Store.set('destino',p.id); return; }
+  let tmp=S.puntos.find(x=>x.id==='tz_'+p.id);
+  if(!tmp){
+    tmp={id:'tz_'+p.id, nombre:p.nombre, tipo:'otro', finca:p.finca,
+      lat:p.lat, lon:p.lon, notas:'Centro del área medida.', temporal:true,
+      permiso:'', vence:'', creado:new Date().toISOString()};
+    S.puntos.push(tmp); guardarPuntos();
+  }
+  S.destinoId=tmp.id; Store.set('destino',tmp.id);
+}
+
+function pintarPlan(){
+  const panel=$('#panelPlan');
+  if(!panel) return;
+  if(!S.plan || !S.plan.paradas.length){ panel.style.display='none'; return; }
+  panel.style.display='';
+  const total=S.plan.paradas.length;
+  const hechas=S.plan.paradas.filter(p=>p.hecho).length;
+  const act=paradaActual();
+  $('#planParada').textContent = act
+    ? (hechas+1)+'. '+act.nombre
+    : 'Recorrido terminado';
+  $('#planCuenta').textContent = act
+    ? act.finca+' · faltan '+(total-hechas)
+    : hechas+' de '+total;
+  $('#planBar').style.width = Math.round(hechas/total*100)+'%';
+  $('#planHecha').textContent = act? 'Marcar hecha' : 'Cerrar recorrido';
+}
+
+async function marcarHecha(){
+  if(!S.plan) return;
+  const act=paradaActual();
+  if(!act){ return cerrarPlan(); }
+  act.hecho=true; act.cuando=Date.now();
+  await guardarPlan();
+  const sig=paradaActual();
+  if(sig){ apuntarAParada(); aviso('Siguiente: '+sig.nombre); }
+  else aviso('Recorrido terminado');
+  refrescar();
+}
+
+async function cerrarPlan(){
+  /* los destinos temporales de las áreas no deben quedar como puntos reales */
+  S.puntos=S.puntos.filter(p=>!p.temporal);
+  await guardarPuntos();
+  S.plan=null; await guardarPlan();
+  refrescar(); aviso('Recorrido cerrado');
+}
+
+/* Reoptimiza lo que falta desde donde estoy ahora. Es lo que se usa
+   cuando en pleno recorrido se cae una parada o cambia el orden real. */
+async function reoptimizarRestante(){
+  if(!S.plan || !S.pos) return aviso('Sin posición GPS');
+  const faltan=S.plan.paradas.filter(p=>!p.hecho);
+  if(faltan.length<2) return aviso('No queda nada que reordenar');
+  aviso('Recalculando…');
+  const r=await optimizar({lat:S.pos.lat,lon:S.pos.lon}, faltan, S.plan.volver);
+  if(!r) return aviso('No se pudo recalcular');
+  S.plan.paradas=[...S.plan.paradas.filter(p=>p.hecho), ...r.orden.map(i=>faltan[i])];
+  await guardarPlan();
+  apuntarAParada(); refrescar();
+  aviso('Nuevo orden · '+fmtDist(r.total).join(' '));
+}
+
+function hojaParadas(){
+  if(!S.plan) return;
+  const ps=S.plan.paradas;
+  abrirHoja(`
+    <h3>Paradas del recorrido</h3>
+    <p class="mini" style="margin:-6px 0 10px">Toca una parada para ir a ella. Se puede quitar lo que ya no aplique.</p>
+    <div style="max-height:48vh;overflow:auto">
+      ${ps.map((p,i)=>`<div class="par ${p.hecho?'ok':''}" data-i="${i}">
+        <span class="num">${p.hecho?'✓':i+1}</span>
+        <div class="tx" data-ir="${i}"><b>${esc(p.nombre)}</b>
+          <span>${esc(p.finca)} · ${esc(p.detalle)}</span></div>
+        <button class="xdel" data-q="${i}">✕</button>
+      </div>`).join('')}
+    </div>
+    <button class="btn wide" style="margin-top:12px" id="pa_re">Reordenar lo que falta</button>
+    <button class="btn grey wide" style="margin-top:9px" id="pa_add">Agregar paradas</button>
+    <button class="btn danger wide" style="margin-top:9px" id="pa_fin">Terminar recorrido</button>`);
+  const c=$('#sheetCard');
+  c.querySelectorAll('[data-ir]').forEach(el=>el.onclick=async()=>{
+    const i=+el.dataset.ir;
+    /* saltar a esa parada: las anteriores sin hacer quedan para después */
+    const p=ps[i]; p.hecho=false;
+    S.plan.paradas=[...ps.filter(x=>x.hecho), p, ...ps.filter(x=>!x.hecho && x!==p)];
+    await guardarPlan(); apuntarAParada(); cerrarHoja(); irA('ir'); refrescar();
+  });
+  c.querySelectorAll('[data-q]').forEach(b=>b.onclick=async e=>{
+    e.stopPropagation();
+    const i=+b.dataset.q;
+    S.plan.paradas=ps.filter((_,k)=>k!==i);
+    if(!S.plan.paradas.length) return cerrarPlan(), cerrarHoja();
+    await guardarPlan(); apuntarAParada(); cerrarHoja(); refrescar();
+    aviso('Parada quitada · quedan '+faltanParadas());
+  });
+  c.querySelector('#pa_re').onclick=async()=>{ cerrarHoja(); await reoptimizarRestante(); };
+  c.querySelector('#pa_add').onclick=hojaPlanear;
+  c.querySelector('#pa_fin').onclick=()=>{ cerrarPlan(); cerrarHoja(); };
+}
+
+const guardarPlan = ()=> Store.set('plan', S.plan);
+const paradaActual = ()=> S.plan && S.plan.paradas.find(p=>!p.hecho) || null;
+const faltanParadas = ()=> S.plan ? S.plan.paradas.filter(p=>!p.hecho).length : 0;
+
 let ultimoAviso=0, avisadoLlegada=null;
 function pintarIr(){
   const d = S.puntos.find(p=>p.id===S.destinoId);
@@ -2268,6 +2691,7 @@ function pintarIr(){
     : `rumbo ${Math.round(b)}° ${cardinal(b)}`;
   girar(needle, hdg==null ? b : b-hdg);
 
+  pintarPlan();
   /* Indicación de ruta, si ya se bajaron las vías */
   const panel=$('#panelRuta');
   recalcular(false);
@@ -2565,6 +2989,9 @@ $('#panelRuta').onclick=()=>{ if(!G) descargarVias(); };
 $('#btnCompartir').onclick=compartirUbicacion;
 $('#btnHallazgo').onclick=hallazgoAqui;
 $('#btnIrCoord').onclick=hojaIrCoord;
+$('#btnPlan').onclick=()=> S.plan? hojaParadas() : hojaPlanear();
+$('#planHecha').onclick=marcarHecha;
+$('#planVer').onclick=hojaParadas;
 $('#selFinca').onchange=e=>{ S.finca=e.target.value; pintarChips(); pintarLista(); };
 $('#mMedir').onclick=()=>{ midiendo? cerrarMedicion() : abrirMedicion(); };
 $('#medAqui').onclick=()=>{
@@ -3487,7 +3914,7 @@ async function importarCSV(txt){
 /* ---------------------------------------------------------------
    13. ARRANQUE
    --------------------------------------------------------------- */
-function refrescar(){ pintarSelFinca(); pintarChips(); pintarLista(); pintarIr(); pintarMapa(); }
+function refrescar(){ pintarSelFinca(); pintarChips(); pintarLista(); pintarIr(); pintarPlan(); pintarMapa(); }
 
 (async function inicio(){
   await Store.open();
@@ -3499,6 +3926,7 @@ function refrescar(){ pintarSelFinca(); pintarChips(); pintarLista(); pintarIr()
   S.visitas = (await Store.get('visitas')) || [];
   S.trazos  = (await Store.get('trazos'))  || [];
   S.ciclo   = (await Store.get('ciclo'))   || '';
+  S.plan    = (await Store.get('plan'))    || null;
   /* Lo que se escribió como "criterio" pasa a ser el permiso; las
      etiquetas de certificación se sueltan. Nadie pierde lo que tecleó. */
   let migrado=false;
