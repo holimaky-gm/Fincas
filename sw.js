@@ -1,6 +1,6 @@
 /* Rumbo — service worker v4.
    Sube VERSION en cada publicación: es lo que dispara la actualización. */
-const VERSION = 'v15';
+const VERSION = 'v17';
 const APP     = 'rumbo-' + VERSION;
 const TESELAS = 'rumbo-teselas';          // sobrevive a las actualizaciones
 
