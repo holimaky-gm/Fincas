@@ -2268,8 +2268,11 @@ function refrescar(){ pintarChips(); pintarLista(); pintarIr(); pintarMapa(); }
       /* al abrir, preguntar siempre si hay algo nuevo */
       reg.update().catch(()=>{});
     }).catch(()=>{});
+    /* El SW nuevo se activa solo. Cuando toma el control, recargamos una
+       vez para que la pantalla corresponda a la versión que ya manda. */
     navigator.serviceWorker.addEventListener('controllerchange',()=>{
-      if(recargando) return; recargando=true; location.reload();
+      if(recargando) return; recargando=true;
+      setTimeout(()=>location.reload(),300);
     });
   }
 })();

@@ -23,6 +23,12 @@ self.addEventListener('install', e => {
         .then(r => r.ok && c.put(u, r))
         .catch(() => {})
     ));
+    /* Tomar el control de una. Sin esto, la versión nueva se queda
+       "esperando" a que se cierren todas las pestañas, y mientras tanto
+       el service worker viejo sigue sirviendo la app vieja. Ese era el
+       nudo: la pantalla vieja no tiene el botón de actualizar, así que
+       nunca se podía desatascar sola. */
+    await self.skipWaiting();
   })());
 });
 
