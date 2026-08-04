@@ -782,6 +782,14 @@ nav button.on{color:var(--canal);border-top-color:var(--canal)}
   padding:8px 14px;font-weight:700;font-size:13px}
 .ruta{background:#0A6A70;color:#fff;border-radius:14px;padding:12px 14px;margin:10px 0}
 .ruta.apagado{background:#5A6155}
+.tags{display:flex;gap:6px;flex-wrap:wrap;margin:7px 0 2px}
+.tags button{border:1.5px solid var(--linea);background:transparent;border-radius:99px;
+  padding:7px 12px;font-size:12px;font-weight:600;color:var(--tinta)}
+.tags button.on{color:#fff;border-color:transparent}
+.nrm{display:inline-block;font-size:10px;font-weight:700;color:#fff;
+  padding:2px 7px;border-radius:99px;margin:0 4px 4px 0}
+.vence{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;
+  padding:3px 9px;border-radius:99px;margin-top:6px}
 .prom{text-align:center;padding:6px 0 2px}
 .prom .big{font:700 40px/1 var(--mono,ui-monospace),monospace;color:var(--acento)}
 .prom .lbl2{font-size:12px;opacity:.6;margin-top:3px}
@@ -927,7 +935,7 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:18px 0}
 <body>
 <div id="app">
   <header>
-    <span class="brand">RUMBO<i id="vTag">v7</i></span>
+    <span class="brand">RUMBO<i id="vTag">v8</i></span>
     <span class="where" id="where">buscando señal…</span>
   </header>
 
@@ -1054,7 +1062,21 @@ const TIPOS = {
   fauna:        {t:'Fauna / bosque',  c:'#6A4C93', s:'FA'},
   otro:         {t:'Otro',            c:'#5A6155', s:'··'}
 };
-const VERSION = 'v7';
+/* Las normas que se auditan en las fincas. La referencia del criterio
+   (AF 1.2, 4.6.1…) va aparte, escrita a mano, porque cambia con cada
+   versión del estándar y no vale la pena congelarla aquí. */
+const NORMAS = {
+  gg:   {t:'GLOBALG.A.P. IFA', c:'#0A6A70'},
+  ra:   {t:'Rainforest Alliance', c:'#3E7D32'},
+  grasp:{t:'GRASP', c:'#6A4C93'},
+  smeta:{t:'SMETA', c:'#8A6D1F'},
+  fsma: {t:'FSMA PSR', c:'#1565C0'},
+  r4t:  {t:'R4T Bioseguridad', c:'#C41E5A'},
+  int:  {t:'Interno / autoridad', c:'#5A6155'}
+};
+const normaDe = k => NORMAS[k] || NORMAS.int;
+
+const VERSION = 'v8';
 const tipoDe = k => TIPOS[k] || TIPOS.otro;
 
 /* Fondos del mapa. Se ven con señal y quedan guardados para usarlos sin ella.
@@ -1132,6 +1154,7 @@ const S = {
   visitas:[],           // {id,puntoId,cuando,quien,estado,obs,lat,lon,acc,fotos:[]}
   quien:'',             // quién registra en este teléfono
   filtro:'todos',
+  filtroN:null,         // filtro por norma o por vencimiento
   busca:'',
   vista:'ir'
 };
@@ -1618,6 +1641,26 @@ const ESTADOS = {
   sinacceso:{t:'Sin acceso',    c:'#5C6470', s:'—'}
 };
 const estadoDe = k => ESTADOS[k] || ESTADOS.bien;
+
+function leerNormas(c){
+  return [...c.querySelectorAll('#e_nrm button.on')].map(b=>b.dataset.n);
+}
+
+/* Días que faltan para el vencimiento. Negativo si ya venció. */
+function diasPara(iso){
+  if(!iso) return null;
+  const d=new Date(iso+'T12:00:00');
+  if(isNaN(d)) return null;
+  return Math.round((d-Date.now())/86400000);
+}
+function estadoVence(iso){
+  const d=diasPara(iso);
+  if(d==null) return null;
+  if(d<0)   return {t:'Vencido hace '+(-d)+' d', c:'#C41E5A', urgente:true};
+  if(d<=30) return {t:'Vence en '+d+' d',        c:'#C41E5A', urgente:true};
+  if(d<=90) return {t:'Vence en '+d+' d',        c:'#C08A1E', urgente:true};
+  return {t:'Vence en '+d+' d', c:'#5A6155', urgente:false};
+}
 
 const visitasDe = id => S.visitas.filter(v=>v.puntoId===id)
                                  .sort((a,b)=>b.cuando-a.cuando);
@@ -2287,14 +2330,39 @@ function pintarChips(){
     const n=S.puntos.filter(p=>p.tipo===k).length;
     h+=`<button class="chip ${S.filtro===k?'on':''}" data-f="${k}">${esc(tipoDe(k).t)} ${n}</button>`;
   });
+
+  /* Segunda fila: filtrar por la norma que respalda el punto. Solo salen
+     las normas realmente usadas, para no llenar la pantalla de chips vacíos. */
+  const nUsadas=[...new Set(S.puntos.flatMap(p=>p.normas||[]))];
+  const porVencer=S.puntos.filter(p=>{ const e=estadoVence(p.vence); return e&&e.urgente; }).length;
+  if(nUsadas.length || porVencer){
+    h+='<span style="width:100%;height:0"></span>';
+    if(porVencer)
+      h+=`<button class="chip ${S.filtroN==='vence'?'on':''}" data-n="vence"
+            style="${S.filtroN==='vence'?'background:#C41E5A;border-color:#C41E5A;color:#fff':'color:#C41E5A'}">Por vencer ${porVencer}</button>`;
+    nUsadas.forEach(k=>{
+      const n=S.puntos.filter(p=>(p.normas||[]).includes(k)).length;
+      const on=S.filtroN===k;
+      h+=`<button class="chip ${on?'on':''}" data-n="${k}"
+            style="${on?'background:'+normaDe(k).c+';border-color:'+normaDe(k).c+';color:#fff':''}">${esc(normaDe(k).t)} ${n}</button>`;
+    });
+  }
+
   const c=$('#chips'); c.innerHTML=h;
-  c.querySelectorAll('.chip').forEach(b=>b.onclick=()=>{ S.filtro=b.dataset.f; pintarChips(); pintarLista(); });
+  c.querySelectorAll('[data-f]').forEach(b=>b.onclick=()=>{
+    S.filtro=b.dataset.f; pintarChips(); pintarLista(); });
+  c.querySelectorAll('[data-n]').forEach(b=>b.onclick=()=>{
+    S.filtroN = S.filtroN===b.dataset.n ? null : b.dataset.n;   // segundo toque lo quita
+    pintarChips(); pintarLista(); });
 }
 function pintarLista(){
   if(S.vista!=='puntos' && !document.hidden) { /* aún así refrescamos distancias */ }
   const q=S.busca.toLowerCase();
   let ps=S.puntos.filter(p=>
     (S.filtro==='todos'||p.tipo===S.filtro) &&
+    (!S.filtroN || (S.filtroN==='vence'
+        ? (()=>{ const e=estadoVence(p.vence); return e&&e.urgente; })()
+        : (p.normas||[]).includes(S.filtroN))) &&
     (!q || (p.nombre+' '+(p.finca||'')+' '+(p.notas||'')).toLowerCase().includes(q)));
 
   if(S.pos) ps=ps.map(p=>({...p,_d:distancia(S.pos.lat,S.pos.lon,p.lat,p.lon)}))
@@ -2316,12 +2384,15 @@ function pintarLista(){
     const t=tipoDe(p.tipo);
     const [n,u]=fmtDist(p._d);
     const uv=ultimaVisita(p.id);
+    const ev=estadoVence(p.vence);
     h+=`<div class="item" data-id="${p.id}">
       <div class="ic" style="background:${t.c}">${t.s}</div>
       <div class="tx"><b>${esc(p.nombre)}</b><span>${uv
           ? `<i style="font-style:normal;color:${estadoDe(uv.estado).c};font-weight:700">${estadoDe(uv.estado).s}</i> ${fechaCorta(uv.cuando).slice(0,10)} · ${esc(p.finca||'sin finca')}`
           : esc(p.finca||'sin finca')+' · '+fmtCoord(p.lat,p.lon)}</span></div>
-      <div class="d">${p._d!=null? n+' '+u : ''}</div></div>`;
+      <div class="d">${ev&&ev.urgente
+          ? `<i style="font-style:normal;font-size:10px;font-weight:800;color:${ev.c}">${ev.t.replace('Vence en ','').replace('Vencido hace ','-')}</i>`
+          : (p._d!=null? n+' '+u : '')}</div></div>`;
   });
   if(S.pos) h=`<div class="grp">Más cerca primero</div>`+h;
   cont.innerHTML=h;
@@ -2367,6 +2438,15 @@ function detallePunto(id){
     <div class="f"><span class="lbl">Coordenadas</span>
       <div style="font-family:var(--mono);font-size:14px">${fmtCoord(p.lat,p.lon)}</div></div>
     ${p.notas?`<div class="f"><span class="lbl">Información</span><div style="font-size:14px;white-space:pre-wrap">${esc(p.notas)}</div></div>`:''}
+    ${(p.normas&&p.normas.length)||p.criterio?`<div class="f"><span class="lbl">Evidencia para</span><div>
+      ${(p.normas||[]).map(k=>`<span class="nrm" style="background:${normaDe(k).c}">${esc(normaDe(k).t)}</span>`).join('')}
+      ${p.criterio?`<div style="font-family:var(--mono);font-size:13px;margin-top:4px">${esc(p.criterio)}</div>`:''}
+    </div></div>`:''}
+    ${(()=>{ const e=estadoVence(p.vence); return e
+      ? `<div class="f"><span class="lbl">Vigencia</span><div>
+           <span class="vence" style="background:${e.c}1F;color:${e.c}">${esc(e.t)}</span>
+           <div style="font-size:12px;opacity:.6;margin-top:3px">${esc(p.vence)}</div></div></div>`
+      : ''; })()}
     <button class="btn wide" data-go>Navegar hasta aquí</button>
     <button class="btn ghost wide" style="margin-top:9px" data-vis>Registrar visita</button>
 
@@ -2436,11 +2516,34 @@ function editorPunto(id,pre){
     </div>
     <div class="f"><label class="lbl">Información</label>
       <textarea id="e_o" placeholder="Caudal, permiso, estado, cómo se entra…">${esc(v.notas||'')}</textarea></div>
+
+    <div class="f"><label class="lbl">Sirve de evidencia para</label>
+      <div class="tags" id="e_nrm">
+        ${Object.entries(NORMAS).map(([k,nn])=>{
+          const on=(v.normas||[]).includes(k);
+          return `<button type="button" data-n="${k}" class="${on?'on':''}"
+            style="${on?'background:'+nn.c:''}">${esc(nn.t)}</button>`;
+        }).join('')}
+      </div></div>
+
+    <div class="f2">
+      <div class="f"><label class="lbl">Criterio</label>
+        <input id="e_cr" value="${esc(v.criterio||'')}" placeholder="AF 1.2 / 4.6.1"></div>
+      <div class="f"><label class="lbl">Vence</label>
+        <input id="e_v" type="date" value="${esc(v.vence||'')}"></div>
+    </div>
+    <div class="f"><div class="note">El vencimiento es para concesiones de agua, permisos de vertimiento y similares. Déjalo vacío si no aplica.</div></div>
     <div class="row">
       <button class="btn grey" data-close>Cancelar</button>
       <button class="btn" data-save>Guardar</button>
     </div>`);
   const c=$('#sheetCard');
+  c.querySelector('#e_nrm').onclick=e=>{
+    const b=e.target.closest('[data-n]'); if(!b) return;
+    const on=!b.classList.contains('on');
+    b.classList.toggle('on',on);
+    b.style.background = on ? NORMAS[b.dataset.n].c : '';
+  };
   c.querySelector('[data-aqui]').onclick=()=>{
     if(!S.pos) return aviso('Sin posición GPS todavía');
     c.querySelector('#e_lat').value=S.pos.lat.toFixed(6);
@@ -2451,6 +2554,8 @@ function editorPunto(id,pre){
     const datos={nombre:c.querySelector('#e_n').value, tipo:c.querySelector('#e_t').value,
       finca:c.querySelector('#e_f').value,
       notas:c.querySelector('#e_o')? c.querySelector('#e_o').value : '',
+      normas:leerNormas(c), criterio:c.querySelector('#e_cr').value,
+      vence:c.querySelector('#e_v').value,
       lat:parseFloat(c.querySelector('#e_lat').value), lon:parseFloat(c.querySelector('#e_lon').value)};
     hojaPromedio(r=>{
       /* la hoja se cerró: hay que rearmar el editor sin perder lo escrito */
@@ -2469,7 +2574,11 @@ function editorPunto(id,pre){
     const r=revisarCoord(lat,lon); lat=r.lat; lon=r.lon;
     const dato={id:p?p.id:('p'+Date.now().toString(36)+Math.random().toString(36).slice(2,6)),
       nombre, tipo:c.querySelector('#e_t').value, finca:c.querySelector('#e_f').value.trim(),
-      lat,lon, notas:c.querySelector('#e_o').value.trim(), creado:p?p.creado:new Date().toISOString()};
+      lat,lon, notas:c.querySelector('#e_o').value.trim(),
+      normas:leerNormas(c),
+      criterio:c.querySelector('#e_cr').value.trim(),
+      vence:c.querySelector('#e_v').value || '',
+      creado:p?p.creado:new Date().toISOString()};
     if(p) S.puntos=S.puntos.map(x=>x.id===p.id?dato:x); else S.puntos.push(dato);
     await guardarPuntos(); cerrarHoja(); refrescar();
     aviso(r.avisos.length? 'Guardado — '+r.avisos[0] : (p?'Punto actualizado':'Punto agregado'));
@@ -2492,6 +2601,20 @@ function hojaDatos(){
     <span class="lbl">Quién registra en este teléfono</span>
     <input id="dQuien" type="text" placeholder="Nombre del practicante" value="${esc(S.quien||'')}" style="margin:7px 0 4px">
     <p class="mini">Queda escrito en cada visita, para saber quién la levantó.</p>
+
+    ${(()=>{
+      const urg=S.puntos.map(p=>({p,e:estadoVence(p.vence)}))
+        .filter(x=>x.e&&x.e.urgente)
+        .sort((a,b)=>diasPara(a.p.vence)-diasPara(b.p.vence));
+      if(!urg.length) return '';
+      return `<hr class="sep"><span class="lbl">Vigencias por atender</span>
+        <div style="margin-top:7px">${urg.slice(0,8).map(({p,e})=>
+          `<div style="display:flex;justify-content:space-between;gap:9px;padding:7px 0;
+             border-bottom:1px solid var(--linea);font-size:13px">
+             <span>${esc(p.nombre)}${p.finca?' · '+esc(p.finca):''}</span>
+             <b style="color:${e.c};white-space:nowrap">${esc(e.t)}</b></div>`).join('')}
+        ${urg.length>8?`<p class="mini" style="margin-top:7px">y ${urg.length-8} más</p>`:''}</div>`;
+    })()}
 
     <hr class="sep">
     <span class="lbl">Descargas para el campo</span>
@@ -2555,7 +2678,18 @@ function hojaDatos(){
   c.querySelector('[data-expvias]').onclick=exportarVias;
   const iq=c.querySelector('#dQuien');
   iq.onchange=()=>{ S.quien=iq.value.trim(); Store.set('quien',S.quien); aviso('Guardado'); };
-  c.querySelector('[data-inf]').onclick=informeEvidencias;
+  c.querySelector('[data-inf]').onclick=()=>{
+    const usadas=[...new Set(S.puntos.flatMap(p=>p.normas||[]))];
+    if(!usadas.length) return informeEvidencias(null);
+    abrirHoja('<h3>Informe de evidencias</h3>'
+      +'<p class="mini" style="margin:-6px 0 12px">¿De qué norma? Sale solo lo que respalda ese estándar.</p>'
+      +'<button class="btn wide" data-n0>Todas las visitas</button>'
+      +usadas.map(k=>`<button class="btn ghost wide" style="margin-top:8px" data-nn="${k}">${esc(normaDe(k).t)}</button>`).join(''));
+    const h=$('#sheetCard');
+    h.querySelector('[data-n0]').onclick=()=>{ cerrarHoja(); informeEvidencias(null); };
+    h.querySelectorAll('[data-nn]').forEach(b=>
+      b.onclick=()=>{ cerrarHoja(); informeEvidencias(b.dataset.nn); });
+  };
   textoDiagnostico().then(t=>{ const d=c.querySelector('#diag'); if(d) d.textContent=t; });
   c.querySelector('[data-reinst]').onclick=reinstalar;
   c.querySelector('[data-recargar]').onclick=async()=>{
@@ -2598,16 +2732,21 @@ function exportarVias(){
   aviso('Vías exportadas. Pásalo a los otros celulares e impórtalo allá.');
 }
 
-async function informeEvidencias(){
+async function informeEvidencias(norma){
   if(!S.visitas.length) return aviso('Todavía no hay visitas registradas');
   aviso('Armando el informe…');
 
   const porFinca = {};
+  let total=0;
   for(const v of [...S.visitas].sort((a,b)=>b.cuando-a.cuando)){
     const p = S.puntos.find(x=>x.id===v.puntoId);
+    /* si se pidió una norma, solo entran los puntos que la respaldan */
+    if(norma && !(p && (p.normas||[]).includes(norma))) continue;
     const f = (p && p.finca) || 'Sin finca';
     (porFinca[f] = porFinca[f] || []).push({v,p});
+    total++;
   }
+  if(!total) return aviso('Ninguna visita corresponde a esa norma');
 
   let cuerpo='';
   for(const finca of Object.keys(porFinca).sort()){
@@ -2622,6 +2761,13 @@ async function informeEvidencias(){
       cuerpo += '<div class="v">'
         + '<div class="cab"><b>'+esc(p? p.nombre : 'Punto eliminado')+'</b>'
         + '<span class="e" style="background:'+e.c+'">'+esc(e.t)+'</span></div>'
+        + (p && ((p.normas||[]).length || p.criterio)
+            ? '<div class="n">'
+              + (p.normas||[]).map(k=>'<span style="background:'+normaDe(k).c+'">'
+                  +esc(normaDe(k).t)+'</span>').join('')
+              + (p.criterio? '<em>'+esc(p.criterio)+'</em>' : '')
+              + '</div>'
+            : '')
         + '<div class="m">'+fechaCorta(v.cuando)
         + (v.quien? ' · '+esc(v.quien) : '')
         + (v.lat!=null? ' · '+fmtCoord2(v.lat,v.lon)+' ±'+(v.acc||0)+' m' : ' · sin GPS')
@@ -2647,18 +2793,22 @@ async function informeEvidencias(){
     + '.e{color:#fff;font-size:11px;font-weight:700;padding:3px 9px;border-radius:99px;'
     + 'white-space:nowrap}'
     + '.m{font:12px ui-monospace,Menlo,monospace;color:#5A6155;margin-top:5px}'
+    + '.n{margin-top:7px}.n span{display:inline-block;color:#fff;font-size:10px;'
+    + 'font-weight:700;padding:2px 7px;border-radius:99px;margin:0 4px 4px 0}'
+    + '.n em{font:12px ui-monospace,Menlo,monospace;color:#5A6155;font-style:normal}'
     + '.v p{margin:9px 0 0;white-space:pre-wrap}'
     + '.f{display:flex;flex-wrap:wrap;gap:9px;margin-top:11px}'
     + '.f img{width:240px;border-radius:7px;border:1px solid #DDE1D6}'
     + '@media print{.v{border-color:#bbb}body{padding:0}}'
     + '</style><h1>Evidencias de campo</h1>'
     + '<p class="sub">Generado el '+fechaCorta(Date.now())
-    + ' · '+S.visitas.length+' visitas registradas</p>'
+    + ' · '+total+' visitas'
+    + (norma? ' · evidencia para '+esc(normaDe(norma).t) : '')+'</p>'
     + cuerpo
     + '<p class="sub" style="margin-top:34px">Cada foto lleva escrito el punto, la fecha y la '
     + 'coordenada desde donde se tomó.</p></html>';
 
-  descargar('evidencias-'+hoy()+'.html', doc, 'text/html');
+  descargar('evidencias'+(norma?'-'+norma:'')+'-'+hoy()+'.html', doc, 'text/html');
   aviso('Informe listo. Ábrelo e imprímelo a PDF si lo necesitas.');
 }
 function exportarPaquete(){
@@ -2668,8 +2818,16 @@ function exportarPaquete(){
 }
 function exportarCSV(){
   const esc2=v=>`"${String(v==null?'':v).replace(/"/g,'""')}"`;
-  const filas=[['nombre','tipo','finca','lat','lon','notas'].join(',')]
-    .concat(S.puntos.map(p=>[p.nombre,p.tipo,p.finca,p.lat,p.lon,p.notas].map(esc2).join(',')));
+  const filas=[['nombre','tipo','finca','lat','lon','notas','normas','criterio','vence',
+                'ultima_visita','estado_ultima'].join(',')]
+    .concat(S.puntos.map(p=>{
+      const uv=ultimaVisita(p.id);
+      return [p.nombre,p.tipo,p.finca,p.lat,p.lon,p.notas,
+        (p.normas||[]).map(k=>normaDe(k).t).join(' / '),
+        p.criterio||'', p.vence||'',
+        uv? fechaCorta(uv.cuando) : '', uv? estadoDe(uv.estado).t : ''
+      ].map(esc2).join(',');
+    }));
   descargar(`puntos-${hoy()}.csv`,'\ufeff'+filas.join('\r\n'),'text/csv');
   aviso('CSV exportado');
 }
