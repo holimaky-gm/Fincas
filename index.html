@@ -782,6 +782,15 @@ nav button.on{color:var(--canal);border-top-color:var(--canal)}
   padding:8px 14px;font-weight:700;font-size:13px}
 .ruta{background:#0A6A70;color:#fff;border-radius:14px;padding:12px 14px;margin:10px 0}
 .ruta.apagado{background:#5A6155}
+.prom{text-align:center;padding:6px 0 2px}
+.prom .big{font:700 40px/1 var(--mono,ui-monospace),monospace;color:var(--acento)}
+.prom .lbl2{font-size:12px;opacity:.6;margin-top:3px}
+.barra{height:7px;border-radius:99px;background:var(--linea);overflow:hidden;margin:14px 0 4px}
+.barra i{display:block;height:100%;background:var(--acento);width:0;transition:width .4s linear}
+.calidad{display:flex;gap:8px;margin-top:13px}
+.calidad div{flex:1;text-align:center;background:var(--suave,#F1F3EC);border-radius:10px;padding:9px 4px}
+.calidad b{display:block;font:600 15px var(--mono,ui-monospace),monospace}
+.calidad span{font-size:10.5px;opacity:.62;letter-spacing:.02em}
 .ruta-top{display:flex;align-items:center;gap:12px}
 .ruta-giro{font-size:30px;line-height:1;min-width:34px;text-align:center}
 .ruta-top b{display:block;font-size:16px}
@@ -918,7 +927,7 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:18px 0}
 <body>
 <div id="app">
   <header>
-    <span class="brand">RUMBO<i id="vTag">v6</i></span>
+    <span class="brand">RUMBO<i id="vTag">v7</i></span>
     <span class="where" id="where">buscando señal…</span>
   </header>
 
@@ -1045,7 +1054,7 @@ const TIPOS = {
   fauna:        {t:'Fauna / bosque',  c:'#6A4C93', s:'FA'},
   otro:         {t:'Otro',            c:'#5A6155', s:'··'}
 };
-const VERSION = 'v6';
+const VERSION = 'v7';
 const tipoDe = k => TIPOS[k] || TIPOS.otro;
 
 /* Fondos del mapa. Se ven con señal y quedan guardados para usarlos sin ella.
@@ -1790,7 +1799,114 @@ async function pintarHistorial(cont, puntoId){
   }
 }
 
-let ultimoAviso=0;
+/* ---------------------------------------------------------------
+   PROMEDIADO DE POSICIÓN
+
+   Una lectura suelta de GPS bajo dosel de banano baila varios metros.
+   Quedándose quieto y promediando muchas lecturas, el error se
+   reparte y el punto queda mucho mejor fijado.
+
+   Se pesa cada lectura por su propia precisión (1/acc²): una lectura
+   de ±4 m manda mucho más que una de ±30 m. Y se descartan los saltos,
+   que son los que más dañan un promedio simple.
+   --------------------------------------------------------------- */
+function promediar(muestras){
+  if(!muestras.length) return null;
+  const mejor = Math.min(...muestras.map(m=>m.acc||99));
+  /* fuera los saltos: lecturas mucho peores que la mejor del lote */
+  const buenas = muestras.filter(m=>(m.acc||99) <= Math.max(mejor*3, mejor+12));
+  const uso = buenas.length>=3 ? buenas : muestras;
+
+  let sw=0, slat=0, slon=0;
+  for(const m of uso){
+    const w = 1/Math.pow(Math.max(m.acc||15,1),2);
+    sw+=w; slat+=m.lat*w; slon+=m.lon*w;
+  }
+  const lat=slat/sw, lon=slon/sw;
+
+  /* dispersión real de las lecturas: más honesta que el ± del equipo */
+  let s2=0;
+  for(const m of uso) s2 += Math.pow(distancia(lat,lon,m.lat,m.lon),2);
+  const disp = Math.sqrt(s2/uso.length);
+
+  /* La dispersión dice cuánto baila el GPS. Lo que interesa es qué tan bien
+     quedó el PROMEDIO, y eso mejora con la raíz del número de lecturas.
+     Mostrar solo la dispersión haría ver malo un punto que quedó fino. */
+  const err = disp/Math.sqrt(Math.max(uso.length,1));
+
+  return {lat, lon, disp, err, n:uso.length,
+          descartadas:muestras.length-uso.length, mejor};
+}
+
+function hojaPromedio(alTerminar){
+  const TOPE=60, MIN=8;
+  const muestras=[];
+  let vigilante=null, terminado=false;
+
+  abrirHoja(`
+    <h3>Promediar posición</h3>
+    <p class="mini" style="margin:-6px 0 14px">Quédate quieto, con el celular hacia el cielo abierto. <b>Error est.</b> es qué tan bueno va quedando el punto; <b>baile GPS</b> es cuánto se mueve la señal.</p>
+    <div class="prom">
+      <div class="big" id="pN">0</div>
+      <div class="lbl2">lecturas tomadas</div>
+    </div>
+    <div class="barra"><i id="pBar"></i></div>
+    <div class="calidad">
+      <div><b id="pErr">—</b><span>ERROR EST.</span></div>
+      <div><b id="pDisp">—</b><span>BAILE GPS</span></div>
+      <div><b id="pDesc">0</b><span>DESCARTADAS</span></div>
+    </div>
+    <div class="f" style="margin-top:14px"><span class="lbl">Coordenada promediada</span>
+      <div id="pCoord" style="font-family:var(--mono);font-size:14px">esperando…</div></div>
+    <button class="btn wide" id="pOk" disabled style="margin-top:6px">Usar esta posición</button>
+    <button class="btn grey wide" style="margin-top:9px" id="pNo">Cancelar</button>`);
+
+  const c=$('#sheetCard');
+  const bOk=c.querySelector('#pOk');
+
+  function pintar(){
+    const r=promediar(muestras);
+    c.querySelector('#pN').textContent=muestras.length;
+    c.querySelector('#pBar').style.width=Math.min(100,muestras.length/TOPE*100)+'%';
+    if(muestras.length>=MIN){ bOk.disabled=false; bOk.textContent='Usar esta posición'; }
+    else { bOk.disabled=true; bOk.textContent='Faltan '+(MIN-muestras.length)+' lecturas'; }
+    if(!r) return;
+    c.querySelector('#pErr').textContent='±'+r.err.toFixed(1)+' m';
+    c.querySelector('#pDisp').textContent=r.disp.toFixed(1)+' m';
+    c.querySelector('#pDesc').textContent=r.descartadas;
+    c.querySelector('#pCoord').textContent=fmtCoord2(r.lat,r.lon);
+  }
+  pintar();
+
+  function parar(){
+    terminado=true;
+    if(vigilante!=null){ try{ navigator.geolocation.clearWatch(vigilante); }catch(e){} vigilante=null; }
+  }
+
+  if(!navigator.geolocation){ aviso('Este navegador no da ubicación'); return; }
+  vigilante = navigator.geolocation.watchPosition(p=>{
+    if(terminado) return;
+    const c2=p.coords;
+    muestras.push({lat:c2.latitude, lon:c2.longitude, acc:c2.accuracy||99});
+    pintar();
+    if(muestras.length>=TOPE){ parar(); aviso('Listo: '+TOPE+' lecturas'); }
+  }, err=>{
+    aviso(err.code===1? 'Ubicación bloqueada' : 'Sin señal GPS suficiente');
+  }, {enableHighAccuracy:true, maximumAge:0, timeout:25000});
+
+  bOk.onclick=()=>{
+    const r=promediar(muestras);
+    parar();
+    if(!r) return aviso('Todavía no hay lecturas');
+    cerrarHoja();
+    alTerminar(r);
+  };
+  c.querySelector('#pNo').onclick=()=>{ parar(); cerrarHoja(); };
+  /* si cierra la hoja de otra forma, no dejar el GPS corriendo */
+  $('#sheet').querySelector('.scrim').addEventListener('click', parar, {once:true});
+}
+
+let ultimoAviso=0, avisadoLlegada=null;
 function pintarIr(){
   const d = S.puntos.find(p=>p.id===S.destinoId);
   const ring=$('#ring'), needle=$('#needle');
@@ -1858,7 +1974,15 @@ function pintarIr(){
   const escala = 74/Math.max(m,10);
   $('#accRing').setAttribute('r', Math.max(6,Math.min(74,(S.pos.acc||15)*escala)).toFixed(1));
 
-  if(m<12 && Date.now()-ultimoAviso>15000){ ultimoAviso=Date.now(); aviso('Llegaste: '+d.nombre); }
+  /* Umbral atado a la precisión real: con ±20 m no tiene sentido exigir 12 m.
+     La vibración es para no ir mirando la pantalla mientras se camina. */
+  const cerca = Math.max(12, Math.min(30, (S.pos.acc||12)));
+  if(m<cerca && avisadoLlegada!==d.id && Date.now()-ultimoAviso>8000){
+    avisadoLlegada=d.id; ultimoAviso=Date.now();
+    try{ navigator.vibrate && navigator.vibrate([90,70,90,70,180]); }catch(e){}
+    aviso('Llegaste: '+d.nombre+' · busca a la vista');
+  }
+  if(m>cerca*2.5) avisadoLlegada=null;   // si se aleja, vuelve a avisar al regresar
   $('#hint').textContent = m<25
     ? 'Estás sobre el punto. Con esta precisión, búscalo a la vista en los últimos metros.'
     : (hdg==null
@@ -2307,6 +2431,7 @@ function editorPunto(id,pre){
     <div class="f"><div class="note">Acepta decimales o grados: 7°45'32.1"N. La longitud en Colombia es negativa.</div></div>
     <div class="row" style="margin-bottom:13px">
       <button class="btn grey" data-aqui>Usar mi posición</button>
+      <button class="btn grey" data-prom>Promediar</button>
       <button class="btn grey" data-tocar>Tocar en el mapa</button>
     </div>
     <div class="f"><label class="lbl">Información</label>
@@ -2321,6 +2446,18 @@ function editorPunto(id,pre){
     c.querySelector('#e_lat').value=S.pos.lat.toFixed(6);
     c.querySelector('#e_lon').value=S.pos.lon.toFixed(6);
     aviso(`Posición tomada con ±${Math.round(S.pos.acc)} m`);
+  };
+  c.querySelector('[data-prom]').onclick=()=>{
+    const datos={nombre:c.querySelector('#e_n').value, tipo:c.querySelector('#e_t').value,
+      finca:c.querySelector('#e_f').value,
+      notas:c.querySelector('#e_o')? c.querySelector('#e_o').value : '',
+      lat:parseFloat(c.querySelector('#e_lat').value), lon:parseFloat(c.querySelector('#e_lon').value)};
+    hojaPromedio(r=>{
+      /* la hoja se cerró: hay que rearmar el editor sin perder lo escrito */
+      datos.lat=+r.lat.toFixed(6); datos.lon=+r.lon.toFixed(6);
+      editorPunto(id, datos);
+      aviso('Promedio de '+r.n+' lecturas · queda en ±'+r.err.toFixed(1)+' m');
+    });
   };
   c.querySelector('[data-tocar]').onclick=()=>{ modoTocar=true; cerrarHoja(); irA('mapa'); aviso('Toca el mapa donde va el punto'); };
   c.querySelector('[data-save]').onclick=async()=>{
