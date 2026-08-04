@@ -749,6 +749,19 @@ nav button.on{color:var(--canal);border-top-color:var(--canal)}
   border-top:10px solid var(--ink)}
 #ring{transition:transform .16s linear;transform-origin:50% 50%}
 #needle{transition:transform .16s linear;transform-origin:50% 50%}
+.brand i{font-style:normal;font-size:10px;font-weight:600;opacity:.55;
+  margin-left:5px;letter-spacing:.04em;vertical-align:super}
+.diag{font:12px ui-monospace,Menlo,Consolas,monospace;background:#11150F;color:#D7DCCE;
+  border-radius:10px;padding:10px 12px;line-height:1.7;white-space:pre-wrap;
+  word-break:break-all;margin:7px 0}
+.diag b{color:#8FD3A6;font-weight:600}
+.diag .mal{color:#FF9A8B}
+.aviso-act{position:fixed;left:12px;right:12px;bottom:78px;z-index:60;background:#0A6A70;
+  color:#fff;border-radius:13px;padding:12px 14px;display:flex;gap:10px;align-items:center;
+  box-shadow:0 6px 22px rgba(0,0,0,.3)}
+.aviso-act b{flex:1;font-size:14px}
+.aviso-act button{background:#fff;color:#0A6A70;border:0;border-radius:9px;
+  padding:8px 14px;font-weight:700;font-size:13px}
 .ruta{background:#0A6A70;color:#fff;border-radius:14px;padding:12px 14px;margin:10px 0}
 .ruta-top{display:flex;align-items:center;gap:12px}
 .ruta-giro{font-size:30px;line-height:1;min-width:34px;text-align:center}
@@ -886,7 +899,7 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:18px 0}
 <body>
 <div id="app">
   <header>
-    <span class="brand">RUMBO</span>
+    <span class="brand">RUMBO<i id="vTag">v4</i></span>
     <span class="where" id="where">buscando señal…</span>
   </header>
 
@@ -1013,6 +1026,7 @@ const TIPOS = {
   fauna:        {t:'Fauna / bosque',  c:'#6A4C93', s:'FA'},
   otro:         {t:'Otro',            c:'#5A6155', s:'··'}
 };
+const VERSION = 'v4';
 const tipoDe = k => TIPOS[k] || TIPOS.otro;
 
 /* Fondos del mapa. Se ven con señal y quedan guardados para usarlos sin ella.
@@ -1461,6 +1475,82 @@ function pasoVigente(){
 }
 
 const FLECHAS={izq:'↰', der:'↱', fin:'◎'};
+
+/* ---------------------------------------------------------------
+   ACTUALIZACIONES
+
+   El service worker sirve la copia guardada primero, que es lo que
+   permite usar la app sin señal. El costo es que una versión nueva
+   no entra sola: hay que detectarla y decírselo al usuario.
+   --------------------------------------------------------------- */
+let regSW = null, recargando = false;
+
+function mostrarAvisoActualizar(trabajador){
+  if(document.getElementById('avisoAct')) return;
+  const d=document.createElement('div');
+  d.className='aviso-act'; d.id='avisoAct';
+  d.innerHTML='<b>Hay una versión nueva</b><button>Actualizar</button>';
+  d.querySelector('button').onclick=()=>{
+    d.remove();
+    if(trabajador) trabajador.postMessage({tipo:'saltar'});
+  };
+  document.body.appendChild(d);
+}
+
+/* Reinicio a fondo: borra la app guardada pero conserva las teselas y
+   las vías, que costaron datos. Es la salida cuando algo se atasca. */
+async function reinstalar(){
+  if(!confirm('Volver a bajar la app desde el servidor.\n\n'+
+              'No se pierden puntos, fincas, mapas ni vías.')) return;
+  try{
+    if('serviceWorker' in navigator){
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map(r=>r.unregister()));
+    }
+    if(window.caches){
+      const ks = await caches.keys();
+      await Promise.all(ks.filter(k=>k!=='rumbo-teselas').map(k=>caches.delete(k)));
+    }
+  }catch(e){}
+  location.replace(location.pathname+'?r='+Date.now());
+}
+
+async function textoDiagnostico(){
+  const L=[];
+  L.push('versión de esta pantalla : '+VERSION);
+  L.push('origen                   : '+location.origin);
+  L.push('ruta                     : '+location.pathname);
+  L.push('protocolo                : '+location.protocol+
+         (location.protocol==='file:' ? '   ← sin GPS ni guardado' : ''));
+
+  let sw='no soportado';
+  if('serviceWorker' in navigator){
+    const ctrl = navigator.serviceWorker.controller;
+    sw = ctrl ? 'activo' : 'ninguno controlando';
+    try{
+      const regs = await navigator.serviceWorker.getRegistrations();
+      sw += '  ('+regs.length+' registrado'+(regs.length===1?'':'s')+')';
+    }catch(e){}
+  }
+  L.push('service worker           : '+sw);
+
+  let cachesTxt='no soportado', teselas=0;
+  if(window.caches){
+    try{
+      const ks=await caches.keys();
+      cachesTxt = ks.length? ks.join(', ') : 'ninguna';
+      if(ks.includes('rumbo-teselas'))
+        teselas=(await (await caches.open('rumbo-teselas')).keys()).length;
+    }catch(e){}
+  }
+  L.push('cachés                   : '+cachesTxt);
+  L.push('piezas de mapa guardadas : '+teselas);
+  L.push('vías para rutas          : '+(G? G.lat.length+' cruces' : 'sin descargar'));
+  L.push('guardado en disco        : '+(Store.volatil()? 'NO (solo memoria)' : 'sí'));
+  L.push('puntos / fincas          : '+S.puntos.length+' / '+(S.fincas?S.fincas.features.length:0));
+  L.push('brújula                  : '+(S.heading==null? 'sin lectura' : Math.round(S.heading)+'°'));
+  return L.join('\n');
+}
 
 let ultimoAviso=0;
 function pintarIr(){
@@ -2007,6 +2097,13 @@ function hojaDatos(){
     <button class="btn grey wide" data-csvout>Exportar puntos a CSV</button>
     ${nf?`<button class="btn grey wide" style="margin-top:9px" data-delf>Quitar fincas cargadas</button>`:''}
     ${Store.volatil()?`<p class="mini" style="margin-top:14px;color:var(--warn)">Este navegador no está guardando en disco. Exporta el paquete antes de cerrar.</p>`:''}
+
+    <hr class="sep">
+    <span class="lbl">Versión y diagnóstico</span>
+    <div class="diag" id="diag">leyendo…</div>
+    <button class="btn ghost wide" style="margin-top:7px" data-recargar>Buscar versión nueva</button>
+    <button class="btn grey wide" style="margin-top:9px" data-reinst>Volver a instalar la app</button>
+    <p class="mini" style="margin-top:8px">Si subiste cambios y el celular sigue igual, usa <b>Volver a instalar</b>. No se pierden puntos, fincas, mapas ni vías.</p>
     <input type="file" id="fi" accept=".json,.geojson,.csv,.txt" style="display:none">`);
   const c=$('#sheetCard'), fi=c.querySelector('#fi');
   let modoCSV=false;
@@ -2014,6 +2111,17 @@ function hojaDatos(){
   c.querySelector('[data-csvout]').onclick=exportarCSV;
   c.querySelector('[data-imp]').onclick=()=>{ modoCSV=false; fi.click(); };
   c.querySelector('[data-csv]').onclick=()=>{ modoCSV=true; fi.click(); };
+  textoDiagnostico().then(t=>{ const d=c.querySelector('#diag'); if(d) d.textContent=t; });
+  c.querySelector('[data-reinst]').onclick=reinstalar;
+  c.querySelector('[data-recargar]').onclick=async()=>{
+    if(!regSW) return aviso('Sin service worker: ábrela desde su enlace https');
+    aviso('Buscando…');
+    try{
+      await regSW.update();
+      setTimeout(()=>aviso(regSW.waiting? 'Hay versión nueva, toca Actualizar'
+                                        : 'Ya tienes la última ('+VERSION+')'),1200);
+    }catch(e){ aviso('No se pudo consultar: '+e.message); }
+  };
   const df=c.querySelector('[data-delf]');
   if(df) df.onclick=async()=>{ S.fincas=null; await guardarFincas(); cerrarHoja(); refrescar(); aviso('Fincas quitadas'); };
   fi.onchange=e=>{
@@ -2144,7 +2252,25 @@ function refrescar(){ pintarChips(); pintarLista(); pintarIr(); pintarMapa(); }
   irA('ir');
   setInterval(()=>{ if(S.pos) pintarIr(); },1000);
   if('serviceWorker' in navigator && location.protocol.startsWith('http')){
-    navigator.serviceWorker.register('sw.js').catch(()=>{});
+    /* updateViaCache:'none' — sin esto el navegador puede servir el sw.js
+       viejo desde su propia caché y la app se queda congelada para siempre. */
+    navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(reg=>{
+      regSW = reg;
+      reg.addEventListener('updatefound',()=>{
+        const nuevo = reg.installing;
+        if(!nuevo) return;
+        nuevo.addEventListener('statechange',()=>{
+          /* hay versión nueva lista y ya había una controlando: avisar */
+          if(nuevo.state==='installed' && navigator.serviceWorker.controller)
+            mostrarAvisoActualizar(nuevo);
+        });
+      });
+      /* al abrir, preguntar siempre si hay algo nuevo */
+      reg.update().catch(()=>{});
+    }).catch(()=>{});
+    navigator.serviceWorker.addEventListener('controllerchange',()=>{
+      if(recargando) return; recargando=true; location.reload();
+    });
   }
 })();
 

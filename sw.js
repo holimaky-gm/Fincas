@@ -1,58 +1,92 @@
-/* Rumbo — cache offline. Sube CACHE cuando publiques una versión nueva. */
-const CACHE = 'rumbo-v3';
-const TESELAS = 'rumbo-teselas';
+/* Rumbo — service worker v4.
+   Sube VERSION en cada publicación: es lo que dispara la actualización. */
+const VERSION = 'v4';
+const APP     = 'rumbo-' + VERSION;
+const TESELAS = 'rumbo-teselas';          // sobrevive a las actualizaciones
+
 const BASE = [
   './', './index.html', './manifest.webmanifest',
   './icon-192.png', './icon-512.png', './icon-maskable.png'
 ];
 
-/* Servidores de fondo cuyas piezas guardamos para el campo */
 const HOSTS_TESELA = ['tile.openstreetmap.org', 'server.arcgisonline.com'];
-const esTesela = url => HOSTS_TESELA.some(h => url.hostname.endsWith(h));
+const esTesela = u => HOSTS_TESELA.some(h => u.hostname.endsWith(h));
 
+/* Instalación tolerante: si un archivo falta, se guarda el resto.
+   Con addAll un solo 404 tumbaba la instalación entera y el celular
+   se quedaba con la versión vieja para siempre. */
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(BASE)).then(() => self.skipWaiting()));
+  e.waitUntil((async () => {
+    const c = await caches.open(APP);
+    await Promise.all(BASE.map(u =>
+      fetch(u, { cache: 'reload' })
+        .then(r => r.ok && c.put(u, r))
+        .catch(() => {})
+    ));
+  })());
 });
 
 self.addEventListener('activate', e => {
-  e.waitUntil(
-    caches.keys()
-      /* TESELAS sobrevive a las actualizaciones: bajarlas cuesta datos */
-      .then(ks => Promise.all(
-        ks.filter(k => k !== CACHE && k !== TESELAS).map(k => caches.delete(k))))
-      .then(() => self.clients.claim())
-  );
+  e.waitUntil((async () => {
+    const ks = await caches.keys();
+    await Promise.all(
+      ks.filter(k => k !== APP && k !== TESELAS).map(k => caches.delete(k)));
+    await self.clients.claim();
+  })());
 });
 
-/* Cache primero: en el campo no hay red y la app debe abrir igual.
-   Las piezas del fondo se van guardando solas a medida que se ven,
-   además de la descarga completa que hace el botón de la app. */
+/* La app avisa cuando el usuario acepta actualizar */
+self.addEventListener('message', e => {
+  if (e.data && e.data.tipo === 'saltar') self.skipWaiting();
+});
+
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
-
   const url = new URL(e.request.url);
 
+  /* Teselas: primero lo guardado. Bajarlas cuesta datos. */
   if (esTesela(url)) {
-    e.respondWith(
-      caches.match(e.request).then(hit => hit || fetch(e.request).then(res => {
-        if (res.ok && res.type !== 'opaque') {
-          const copia = res.clone();
+    e.respondWith(caches.match(e.request).then(hit => hit ||
+      fetch(e.request).then(r => {
+        if (r.ok && r.type !== 'opaque') {
+          const copia = r.clone();
           caches.open(TESELAS).then(c => c.put(e.request, copia));
         }
-        return res;
-      /* sin señal y sin pieza guardada: que no reviente, solo queda en blanco */
-      }).catch(() => new Response('', { status: 504 })))
+        return r;
+      }).catch(() => new Response('', { status: 504 }))));
+    return;
+  }
+
+  if (url.origin !== location.origin) return;
+
+  /* El armazón de la app va primero por red: así una versión nueva
+     entra apenas hay señal, en vez de quedarse pegada a la caché.
+     Sin señal cae a lo guardado y todo sigue funcionando igual. */
+  const esArmazon = e.request.mode === 'navigate' ||
+                    /\.(html|webmanifest)$/.test(url.pathname) ||
+                    url.pathname.endsWith('/');
+
+  if (esArmazon) {
+    e.respondWith(
+      fetch(e.request, { cache: 'no-store' })
+        .then(r => {
+          if (r.ok) { const c = r.clone(); caches.open(APP).then(x => x.put(e.request, c)); }
+          return r;
+        })
+        .catch(() => caches.match(e.request)
+          .then(hit => hit || caches.match('./index.html'))
+          .then(hit => hit || new Response('Sin conexión y sin copia guardada.',
+            { status: 503, headers: { 'Content-Type': 'text/plain; charset=utf-8' } })))
     );
     return;
   }
 
-  e.respondWith(
-    caches.match(e.request).then(hit => hit || fetch(e.request).then(res => {
-      if (res.ok && url.origin === location.origin) {
-        const copia = res.clone();
-        caches.open(CACHE).then(c => c.put(e.request, copia));
-      }
-      return res;
-    }).catch(() => hit))
-  );
+  /* Iconos y demás: primero lo guardado, y se refresca por detrás. */
+  e.respondWith(caches.match(e.request).then(hit => {
+    const red = fetch(e.request).then(r => {
+      if (r.ok) { const c = r.clone(); caches.open(APP).then(x => x.put(e.request, c)); }
+      return r;
+    }).catch(() => hit);
+    return hit || red;
+  }));
 });
