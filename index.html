@@ -782,6 +782,8 @@ nav button.on{color:var(--canal);border-top-color:var(--canal)}
   padding:8px 14px;font-weight:700;font-size:13px}
 .ruta{background:#0A6A70;color:#fff;border-radius:14px;padding:12px 14px;margin:10px 0}
 .ruta.apagado{background:#5A6155}
+.selfinca{padding:0 14px 4px}
+.selfinca select{width:100%;font-size:14px}
 .trz{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--linea)}
 .trz b{display:block;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .trz span:not(:first-child){font-size:11px;opacity:.62}
@@ -950,7 +952,7 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:18px 0}
 <body>
 <div id="app">
   <header>
-    <span class="brand">RUMBO<i id="vTag">v11</i></span>
+    <span class="brand">RUMBO<i id="vTag">v12</i></span>
     <span class="where" id="where">buscando señal…</span>
   </header>
 
@@ -1014,7 +1016,11 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:18px 0}
         <button class="btn ghost" id="btnVerMapa">Ver en el mapa</button>
         <button class="btn grey" id="btnCalib">Calibrar brújula</button>
       </div>
-      <button class="btn grey wide" style="margin-top:9px" id="btnCompartir">Enviar mi ubicación</button>
+      <div class="row" style="margin-top:9px">
+        <button class="btn grey" id="btnHallazgo">Registrar hallazgo aquí</button>
+        <button class="btn grey" id="btnCompartir">Enviar mi ubicación</button>
+      </div>
+      <button class="btn ghost wide" style="margin-top:9px" id="btnIrCoord">Ir a una coordenada</button>
     </section>
 
     <!-- ============ MAPA ============ -->
@@ -1051,6 +1057,7 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:18px 0}
     <!-- ============ PUNTOS ============ -->
     <section class="view" id="puntos">
       <div class="search"><input id="q" type="search" placeholder="Buscar punto o finca…" autocomplete="off"></div>
+      <div class="selfinca"><select id="selFinca"><option value="">Todas las fincas</option></select></div>
       <div class="chips" id="chips"></div>
       <div id="lista"></div>
       <div style="padding:22px 14px 0">
@@ -1096,21 +1103,7 @@ const TIPOS = {
   fauna:        {t:'Fauna / bosque',  c:'#6A4C93', s:'FA'},
   otro:         {t:'Otro',            c:'#5A6155', s:'··'}
 };
-/* Las normas que se auditan en las fincas. La referencia del criterio
-   (AF 1.2, 4.6.1…) va aparte, escrita a mano, porque cambia con cada
-   versión del estándar y no vale la pena congelarla aquí. */
-const NORMAS = {
-  gg:   {t:'GLOBALG.A.P. IFA', c:'#0A6A70'},
-  ra:   {t:'Rainforest Alliance', c:'#3E7D32'},
-  grasp:{t:'GRASP', c:'#6A4C93'},
-  smeta:{t:'SMETA', c:'#8A6D1F'},
-  fsma: {t:'FSMA PSR', c:'#1565C0'},
-  r4t:  {t:'R4T Bioseguridad', c:'#C41E5A'},
-  int:  {t:'Interno / autoridad', c:'#5A6155'}
-};
-const normaDe = k => NORMAS[k] || NORMAS.int;
-
-const VERSION = 'v11';
+const VERSION = 'v12';
 const tipoDe = k => TIPOS[k] || TIPOS.otro;
 
 /* Fondos del mapa. Se ven con señal y quedan guardados para usarlos sin ella.
@@ -1188,7 +1181,8 @@ const S = {
   visitas:[],           // {id,puntoId,cuando,quien,estado,obs,lat,lon,acc,fotos:[]}
   quien:'',             // quién registra en este teléfono
   filtro:'todos',
-  filtroN:null,         // filtro por norma o por vencimiento
+  filtroN:null,         // pendientes o por vencer
+  finca:'',             // finca aislada
   trazos:[],            // recorridos y áreas medidas
   ciclo:'',             // fecha desde la que cuenta el ciclo de auditoría
   busca:'',
@@ -1738,10 +1732,6 @@ function avancePorFinca(){
     .sort((a,b)=>a.pct-b.pct || a.finca.localeCompare(b.finca));
 }
 
-function leerNormas(c){
-  return [...c.querySelectorAll('#e_nrm button.on')].map(b=>b.dataset.n);
-}
-
 /* Días que faltan para el vencimiento. Negativo si ya venció. */
 function diasPara(iso){
   if(!iso) return null;
@@ -2187,6 +2177,66 @@ async function compartirUbicacion(){
   catch(e){ aviso('No se pudo compartir'); }
 }
 
+/* Hallazgo: crear el punto donde estoy parado y registrar la visita de
+   una vez. Es el caso más común en campo — se encuentra algo que no
+   estaba en la lista y hay que dejar constancia sin perder el momento. */
+function hallazgoAqui(){
+  if(!S.pos) return aviso('Sin posición GPS todavía');
+  const finca = fincaEn(S.pos.lat, S.pos.lon) || '';
+  editorPunto(null, {
+    lat:+S.pos.lat.toFixed(6), lon:+S.pos.lon.toFixed(6),
+    finca, nombre:'', tipo:'otro', _hallazgo:true
+  });
+}
+
+function hojaIrCoord(){
+  abrirHoja(`
+    <h3>Ir a una coordenada</h3>
+    <p class="mini" style="margin:-6px 0 13px">Pega lo que venga en el oficio o la resolución. Acepta decimales o grados: 7°45'32.1"N.</p>
+    <div class="f"><label class="lbl">Latitud</label>
+      <input id="ic_lat" inputmode="text" placeholder="7.845123"></div>
+    <div class="f"><label class="lbl">Longitud</label>
+      <input id="ic_lon" inputmode="text" placeholder="-76.641987"></div>
+    <div class="f"><label class="lbl">Nombre (opcional)</label>
+      <input id="ic_n" placeholder="Punto de la resolución"></div>
+    <button class="btn wide" id="ic_ok">Ir hasta ahí</button>
+    <p class="mini" style="margin-top:9px">Se guarda como punto para poder navegar hasta él. Si no lo quieres conservar, bórralo después.</p>`);
+  const c=$('#sheetCard');
+  c.querySelector('#ic_ok').onclick=async()=>{
+    let lat=parseCoord(c.querySelector('#ic_lat').value,true);
+    let lon=parseCoord(c.querySelector('#ic_lon').value,false);
+    if(isNaN(lat)||isNaN(lon)) return aviso('Revisa las coordenadas');
+    const r=revisarCoord(lat,lon); lat=r.lat; lon=r.lon;
+    const dato={id:'p'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),
+      nombre:c.querySelector('#ic_n').value.trim()||('Coordenada '+fmtCoord(lat,lon)),
+      tipo:'otro', finca:fincaEn(lat,lon)||'', lat, lon,
+      notas:'Cargado por coordenada.', permiso:'', vence:'',
+      creado:new Date().toISOString()};
+    S.puntos.push(dato);
+    await guardarPuntos();
+    S.destinoId=dato.id; await Store.set('destino',dato.id);
+    cerrarHoja(); irA('ir'); refrescar();
+    aviso(r.avisos.length? r.avisos[0] : 'Listo, navega hasta ahí');
+  };
+}
+
+/* Ya perdimos datos una vez por borrar los del sitio. Un recordatorio
+   discreto vale más que otra explicación después del hecho. */
+async function revisarRespaldo(){
+  if(!S.puntos.length && !S.visitas.length) return;
+  const ult = await Store.get('ultimoRespaldo');
+  const dias = ult ? Math.floor((Date.now()-ult)/86400000) : 999;
+  if(dias<14) return;
+  const el=document.createElement('div');
+  el.className='aviso-act'; el.id='avisoResp';
+  el.innerHTML='<b>'+(ult? 'Hace '+dias+' días que no respaldas'
+                          : 'Nunca has hecho un respaldo')+
+               '</b><button>Exportar</button>';
+  el.querySelector('button').onclick=()=>{ el.remove(); exportarPaquete(); };
+  setTimeout(()=>{ const e=document.getElementById('avisoResp'); if(e) e.remove(); },14000);
+  document.body.appendChild(el);
+}
+
 let ultimoAviso=0, avisadoLlegada=null;
 function pintarIr(){
   const d = S.puntos.find(p=>p.id===S.destinoId);
@@ -2513,6 +2563,9 @@ $('#mDesc').onclick=descargarZona;
 $('#mVias').onclick=descargarVias;
 $('#panelRuta').onclick=()=>{ if(!G) descargarVias(); };
 $('#btnCompartir').onclick=compartirUbicacion;
+$('#btnHallazgo').onclick=hallazgoAqui;
+$('#btnIrCoord').onclick=hojaIrCoord;
+$('#selFinca').onchange=e=>{ S.finca=e.target.value; pintarChips(); pintarLista(); };
 $('#mMedir').onclick=()=>{ midiendo? cerrarMedicion() : abrirMedicion(); };
 $('#medAqui').onclick=()=>{
   if(!S.pos) return aviso('Sin posición GPS todavía');
@@ -2604,6 +2657,20 @@ async function descargarZona(){
 /* ---------------------------------------------------------------
    10. LISTA DE PUNTOS
    --------------------------------------------------------------- */
+function pintarSelFinca(){
+  const sel=$('#selFinca'); if(!sel) return;
+  const fincas=[...new Set(S.puntos.map(p=>p.finca||'Sin finca'))].sort();
+  const actual=S.finca;
+  sel.innerHTML='<option value="">Todas las fincas</option>'+
+    fincas.map(f=>{
+      const n=S.puntos.filter(p=>(p.finca||'Sin finca')===f).length;
+      const falta=S.puntos.filter(p=>(p.finca||'Sin finca')===f && !cubierto(p.id)).length;
+      return `<option value="${esc(f)}">${esc(f)} · ${n} punto${n===1?'':'s'}`+
+             (falta? ` · faltan ${falta}`:' · al día')+`</option>`;
+    }).join('');
+  sel.value=actual;
+}
+
 function pintarChips(){
   const usados=[...new Set(S.puntos.map(p=>p.tipo))];
   let h=`<button class="chip ${S.filtro==='todos'?'on':''}" data-f="todos">Todos ${S.puntos.length}</button>`;
@@ -2612,12 +2679,10 @@ function pintarChips(){
     h+=`<button class="chip ${S.filtro===k?'on':''}" data-f="${k}">${esc(tipoDe(k).t)} ${n}</button>`;
   });
 
-  /* Segunda fila: filtrar por la norma que respalda el punto. Solo salen
-     las normas realmente usadas, para no llenar la pantalla de chips vacíos. */
-  const nUsadas=[...new Set(S.puntos.flatMap(p=>p.normas||[]))];
+  /* Segunda fila: lo que hay que atender. */
   const porVencer=S.puntos.filter(p=>{ const e=estadoVence(p.vence); return e&&e.urgente; }).length;
   const pend=S.puntos.filter(p=>!cubierto(p.id)).length;
-  if(nUsadas.length || porVencer || pend){
+  if(porVencer || pend){
     h+='<span style="width:100%;height:0"></span>';
     if(pend)
       h+=`<button class="chip ${S.filtroN==='pend'?'on':''}" data-n="pend"
@@ -2625,12 +2690,6 @@ function pintarChips(){
     if(porVencer)
       h+=`<button class="chip ${S.filtroN==='vence'?'on':''}" data-n="vence"
             style="${S.filtroN==='vence'?'background:#C41E5A;border-color:#C41E5A;color:#fff':'color:#C41E5A'}">Por vencer ${porVencer}</button>`;
-    nUsadas.forEach(k=>{
-      const n=S.puntos.filter(p=>(p.normas||[]).includes(k)).length;
-      const on=S.filtroN===k;
-      h+=`<button class="chip ${on?'on':''}" data-n="${k}"
-            style="${on?'background:'+normaDe(k).c+';border-color:'+normaDe(k).c+';color:#fff':''}">${esc(normaDe(k).t)} ${n}</button>`;
-    });
   }
 
   const c=$('#chips'); c.innerHTML=h;
@@ -2645,11 +2704,10 @@ function pintarLista(){
   const q=S.busca.toLowerCase();
   let ps=S.puntos.filter(p=>
     (S.filtro==='todos'||p.tipo===S.filtro) &&
+    (!S.finca || (p.finca||'Sin finca')===S.finca) &&
     (!S.filtroN || (S.filtroN==='vence'
         ? (()=>{ const e=estadoVence(p.vence); return e&&e.urgente; })()
-        : S.filtroN==='pend'
-        ? !cubierto(p.id)
-        : (p.normas||[]).includes(S.filtroN))) &&
+        : !cubierto(p.id))) &&
     (!q || (p.nombre+' '+(p.finca||'')+' '+(p.notas||'')).toLowerCase().includes(q)));
 
   if(S.pos) ps=ps.map(p=>({...p,_d:distancia(S.pos.lat,S.pos.lon,p.lat,p.lon)}))
@@ -2725,10 +2783,8 @@ function detallePunto(id){
     <div class="f"><span class="lbl">Coordenadas</span>
       <div style="font-family:var(--mono);font-size:14px">${fmtCoord(p.lat,p.lon)}</div></div>
     ${p.notas?`<div class="f"><span class="lbl">Información</span><div style="font-size:14px;white-space:pre-wrap">${esc(p.notas)}</div></div>`:''}
-    ${(p.normas&&p.normas.length)||p.criterio?`<div class="f"><span class="lbl">Evidencia para</span><div>
-      ${(p.normas||[]).map(k=>`<span class="nrm" style="background:${normaDe(k).c}">${esc(normaDe(k).t)}</span>`).join('')}
-      ${p.criterio?`<div style="font-family:var(--mono);font-size:13px;margin-top:4px">${esc(p.criterio)}</div>`:''}
-    </div></div>`:''}
+    ${p.permiso?`<div class="f"><span class="lbl">Permiso</span>
+      <div style="font-family:var(--mono);font-size:14px">${esc(p.permiso)}</div></div>`:''}
     ${(()=>{ const e=estadoVence(p.vence); return e
       ? `<div class="f"><span class="lbl">Vigencia</span><div>
            <span class="vence" style="background:${e.c}1F;color:${e.c}">${esc(e.t)}</span>
@@ -2804,33 +2860,18 @@ function editorPunto(id,pre){
     <div class="f"><label class="lbl">Información</label>
       <textarea id="e_o" placeholder="Caudal, permiso, estado, cómo se entra…">${esc(v.notas||'')}</textarea></div>
 
-    <div class="f"><label class="lbl">Sirve de evidencia para</label>
-      <div class="tags" id="e_nrm">
-        ${Object.entries(NORMAS).map(([k,nn])=>{
-          const on=(v.normas||[]).includes(k);
-          return `<button type="button" data-n="${k}" class="${on?'on':''}"
-            style="${on?'background:'+nn.c:''}">${esc(nn.t)}</button>`;
-        }).join('')}
-      </div></div>
-
     <div class="f2">
-      <div class="f"><label class="lbl">Criterio</label>
-        <input id="e_cr" value="${esc(v.criterio||'')}" placeholder="AF 1.2 / 4.6.1"></div>
+      <div class="f"><label class="lbl">Permiso o resolución</label>
+        <input id="e_cr" value="${esc(v.permiso||v.criterio||'')}" placeholder="Res. 0123 de 2024"></div>
       <div class="f"><label class="lbl">Vence</label>
         <input id="e_v" type="date" value="${esc(v.vence||'')}"></div>
     </div>
-    <div class="f"><div class="note">El vencimiento es para concesiones de agua, permisos de vertimiento y similares. Déjalo vacío si no aplica.</div></div>
+    <div class="f"><div class="note">Para concesiones de agua, permisos de vertimiento y similares. Déjalo vacío si no aplica.</div></div>
     <div class="row">
       <button class="btn grey" data-close>Cancelar</button>
       <button class="btn" data-save>Guardar</button>
     </div>`);
   const c=$('#sheetCard');
-  c.querySelector('#e_nrm').onclick=e=>{
-    const b=e.target.closest('[data-n]'); if(!b) return;
-    const on=!b.classList.contains('on');
-    b.classList.toggle('on',on);
-    b.style.background = on ? NORMAS[b.dataset.n].c : '';
-  };
   c.querySelector('[data-aqui]').onclick=()=>{
     if(!S.pos) return aviso('Sin posición GPS todavía');
     c.querySelector('#e_lat').value=S.pos.lat.toFixed(6);
@@ -2841,8 +2882,7 @@ function editorPunto(id,pre){
     const datos={nombre:c.querySelector('#e_n').value, tipo:c.querySelector('#e_t').value,
       finca:c.querySelector('#e_f').value,
       notas:c.querySelector('#e_o')? c.querySelector('#e_o').value : '',
-      normas:leerNormas(c), criterio:c.querySelector('#e_cr').value,
-      vence:c.querySelector('#e_v').value,
+      permiso:c.querySelector('#e_cr').value, vence:c.querySelector('#e_v').value,
       lat:parseFloat(c.querySelector('#e_lat').value), lon:parseFloat(c.querySelector('#e_lon').value)};
     hojaPromedio(r=>{
       /* la hoja se cerró: hay que rearmar el editor sin perder lo escrito */
@@ -2862,12 +2902,13 @@ function editorPunto(id,pre){
     const dato={id:p?p.id:('p'+Date.now().toString(36)+Math.random().toString(36).slice(2,6)),
       nombre, tipo:c.querySelector('#e_t').value, finca:c.querySelector('#e_f').value.trim(),
       lat,lon, notas:c.querySelector('#e_o').value.trim(),
-      normas:leerNormas(c),
-      criterio:c.querySelector('#e_cr').value.trim(),
+      permiso:c.querySelector('#e_cr').value.trim(),
       vence:c.querySelector('#e_v').value || '',
       creado:p?p.creado:new Date().toISOString()};
     if(p) S.puntos=S.puntos.map(x=>x.id===p.id?dato:x); else S.puntos.push(dato);
     await guardarPuntos(); cerrarHoja(); refrescar();
+    /* venía de "registrar hallazgo": encadenar la visita sin pasos de más */
+    if(v && v._hallazgo && !p){ hojaVisita(dato.id); return; }
     aviso(r.avisos.length? 'Guardado — '+r.avisos[0] : (p?'Punto actualizado':'Punto agregado'));
   };
 }
@@ -3018,18 +3059,7 @@ function hojaDatos(){
     cerrarHoja(); refrescar(); hojaDatos(); };
   const iq=c.querySelector('#dQuien');
   iq.onchange=()=>{ S.quien=iq.value.trim(); Store.set('quien',S.quien); aviso('Guardado'); };
-  c.querySelector('[data-inf]').onclick=()=>{
-    const usadas=[...new Set(S.puntos.flatMap(p=>p.normas||[]))];
-    if(!usadas.length) return informeEvidencias(null);
-    abrirHoja('<h3>Informe de evidencias</h3>'
-      +'<p class="mini" style="margin:-6px 0 12px">¿De qué norma? Sale solo lo que respalda ese estándar.</p>'
-      +'<button class="btn wide" data-n0>Todas las visitas</button>'
-      +usadas.map(k=>`<button class="btn ghost wide" style="margin-top:8px" data-nn="${k}">${esc(normaDe(k).t)}</button>`).join(''));
-    const h=$('#sheetCard');
-    h.querySelector('[data-n0]').onclick=()=>{ cerrarHoja(); informeEvidencias(null); };
-    h.querySelectorAll('[data-nn]').forEach(b=>
-      b.onclick=()=>{ cerrarHoja(); informeEvidencias(b.dataset.nn); });
-  };
+  c.querySelector('[data-inf]').onclick=()=>informeEvidencias(null);
   textoDiagnostico().then(t=>{ const d=c.querySelector('#diag'); if(d) d.textContent=t; });
   c.querySelector('[data-reinst]').onclick=reinstalar;
   c.querySelector('[data-recargar]').onclick=async()=>{
@@ -3142,7 +3172,7 @@ function trazosGeoJSON(sel){
     ...el.puntos.map(p=>({
       type:'Feature',
       properties:{nombre:p.nombre, tipo:p.tipo, finca:p.finca, notas:p.notas,
-        normas:(p.normas||[]).join('|'), criterio:p.criterio||'', vence:p.vence||''},
+        permiso:p.permiso||'', vence:p.vence||''},
       geometry:{type:'Point', coordinates:[p.lon,p.lat]}
     }))
   ]};
@@ -3154,14 +3184,14 @@ function csvSeleccion(sel){
   const el=elegidos(sel);
   const q=v=>`"${String(v==null?'':v).replace(/"/g,'""')}"`;
   const cab=['registro','nombre','clase','finca','lat','lon','metros','area_ha',
-             'notas','normas','criterio','vence','ultima_visita','estado_ultima','levanto','fecha'];
+             'notas','permiso','vence','ultima_visita','estado_ultima','levanto','fecha'];
   const filas=[cab.join(',')];
 
   el.puntos.forEach(p=>{
     const uv=ultimaVisita(p.id);
     filas.push([ 'punto', p.nombre, tipoDe(p.tipo).t, p.finca,
       p.lat, p.lon, '', '', p.notas,
-      (p.normas||[]).map(k=>normaDe(k).t).join(' / '), p.criterio||'', p.vence||'',
+      p.permiso||'', p.vence||'',
       uv? fechaCorta(uv.cuando):'', uv? estadoDe(uv.estado).t:'', '', p.creado||''
     ].map(q).join(','));
   });
@@ -3170,7 +3200,7 @@ function csvSeleccion(sel){
     const [la,lo]=centroTrazo(t);
     filas.push([ t.clase||'area', t.nombre, claseTrazo(t.clase).t, t.finca,
       la.toFixed(6), lo.toFixed(6), t.metros, (t.area/10000).toFixed(4),
-      t.obs||'', '', '', '', '', '', t.quien||'', new Date(t.cuando).toISOString()
+      t.obs||'', '', '', '', '', t.quien||'', new Date(t.cuando).toISOString()
     ].map(q).join(','));
   });
 
@@ -3283,7 +3313,7 @@ async function informeEvidencias(norma){
   for(const v of [...S.visitas].sort((a,b)=>b.cuando-a.cuando)){
     const p = S.puntos.find(x=>x.id===v.puntoId);
     /* si se pidió una norma, solo entran los puntos que la respaldan */
-    if(norma && !(p && (p.normas||[]).includes(norma))) continue;
+    if(norma && !(p && (p.finca||'Sin finca')===norma)) continue;
     const f = (p && p.finca) || 'Sin finca';
     (porFinca[f] = porFinca[f] || []).push({v,p});
     total++;
@@ -3303,13 +3333,7 @@ async function informeEvidencias(norma){
       cuerpo += '<div class="v">'
         + '<div class="cab"><b>'+esc(p? p.nombre : 'Punto eliminado')+'</b>'
         + '<span class="e" style="background:'+e.c+'">'+esc(e.t)+'</span></div>'
-        + (p && ((p.normas||[]).length || p.criterio)
-            ? '<div class="n">'
-              + (p.normas||[]).map(k=>'<span style="background:'+normaDe(k).c+'">'
-                  +esc(normaDe(k).t)+'</span>').join('')
-              + (p.criterio? '<em>'+esc(p.criterio)+'</em>' : '')
-              + '</div>'
-            : '')
+        + (p && p.permiso ? '<div class="n"><em>'+esc(p.permiso)+'</em></div>' : '')
         + '<div class="m">'+fechaCorta(v.cuando)
         + (v.quien? ' · '+esc(v.quien) : '')
         + (v.lat!=null? ' · '+fmtCoord2(v.lat,v.lon)+' ±'+(v.acc||0)+' m' : ' · sin GPS')
@@ -3345,7 +3369,7 @@ async function informeEvidencias(norma){
     + '</style><h1>Evidencias de campo</h1>'
     + '<p class="sub">Generado el '+fechaCorta(Date.now())
     + ' · '+total+' visitas'
-    + (norma? ' · evidencia para '+esc(normaDe(norma).t) : '')+'</p>'
+    + (norma? ' · '+esc(norma) : '')+'</p>'
     + cuerpo
     + '<p class="sub" style="margin-top:34px">Cada foto lleva escrito el punto, la fecha y la '
     + 'coordenada desde donde se tomó.</p></html>';
@@ -3356,22 +3380,8 @@ async function informeEvidencias(norma){
 function exportarPaquete(){
   descargar(`rumbo-${hoy()}.json`, JSON.stringify({rumbo:1,fecha:new Date().toISOString(),
     puntos:S.puntos, fincas:S.fincas, visitas:S.visitas, trazos:S.trazos},null,1));
+  Store.set('ultimoRespaldo', Date.now());
   aviso('Paquete exportado (sin fotos: usa el informe para eso)');
-}
-function exportarCSV(){
-  const esc2=v=>`"${String(v==null?'':v).replace(/"/g,'""')}"`;
-  const filas=[['nombre','tipo','finca','lat','lon','notas','normas','criterio','vence',
-                'ultima_visita','estado_ultima'].join(',')]
-    .concat(S.puntos.map(p=>{
-      const uv=ultimaVisita(p.id);
-      return [p.nombre,p.tipo,p.finca,p.lat,p.lon,p.notas,
-        (p.normas||[]).map(k=>normaDe(k).t).join(' / '),
-        p.criterio||'', p.vence||'',
-        uv? fechaCorta(uv.cuando) : '', uv? estadoDe(uv.estado).t : ''
-      ].map(esc2).join(',');
-    }));
-  descargar(`puntos-${hoy()}.csv`,'\ufeff'+filas.join('\r\n'),'text/csv');
-  aviso('CSV exportado');
 }
 async function importarJSON(txt){
   let j; try{ j=JSON.parse(txt); }catch(e){ return aviso('El archivo no se pudo leer'); }
@@ -3477,7 +3487,7 @@ async function importarCSV(txt){
 /* ---------------------------------------------------------------
    13. ARRANQUE
    --------------------------------------------------------------- */
-function refrescar(){ pintarChips(); pintarLista(); pintarIr(); pintarMapa(); }
+function refrescar(){ pintarSelFinca(); pintarChips(); pintarLista(); pintarIr(); pintarMapa(); }
 
 (async function inicio(){
   await Store.open();
@@ -3489,8 +3499,17 @@ function refrescar(){ pintarChips(); pintarLista(); pintarIr(); pintarMapa(); }
   S.visitas = (await Store.get('visitas')) || [];
   S.trazos  = (await Store.get('trazos'))  || [];
   S.ciclo   = (await Store.get('ciclo'))   || '';
+  /* Lo que se escribió como "criterio" pasa a ser el permiso; las
+     etiquetas de certificación se sueltan. Nadie pierde lo que tecleó. */
+  let migrado=false;
+  S.puntos.forEach(p=>{
+    if(p.criterio!=null){ if(!p.permiso) p.permiso=p.criterio; delete p.criterio; migrado=true; }
+    if(p.normas!=null){ delete p.normas; migrado=true; }
+  });
+  if(migrado) guardarPuntos();
   S.quien   = (await Store.get('quien')) || '';
   cargarGrafo();
+  setTimeout(revisarRespaldo, 6000);
   S.destinoId = (await Store.get('destino')) || null;
   iniciarMapa();
   refrescar();
