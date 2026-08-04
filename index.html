@@ -781,6 +781,7 @@ nav button.on{color:var(--canal);border-top-color:var(--canal)}
 .aviso-act button{background:#fff;color:#0A6A70;border:0;border-radius:9px;
   padding:8px 14px;font-weight:700;font-size:13px}
 .ruta{background:#0A6A70;color:#fff;border-radius:14px;padding:12px 14px;margin:10px 0}
+.ruta.apagado{background:#5A6155}
 .ruta-top{display:flex;align-items:center;gap:12px}
 .ruta-giro{font-size:30px;line-height:1;min-width:34px;text-align:center}
 .ruta-top b{display:block;font-size:16px}
@@ -917,7 +918,7 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:18px 0}
 <body>
 <div id="app">
   <header>
-    <span class="brand">RUMBO<i id="vTag">v5</i></span>
+    <span class="brand">RUMBO<i id="vTag">v6</i></span>
     <span class="where" id="where">buscando señal…</span>
   </header>
 
@@ -1044,7 +1045,7 @@ const TIPOS = {
   fauna:        {t:'Fauna / bosque',  c:'#6A4C93', s:'FA'},
   otro:         {t:'Otro',            c:'#5A6155', s:'··'}
 };
-const VERSION = 'v5';
+const VERSION = 'v6';
 const tipoDe = k => TIPOS[k] || TIPOS.otro;
 
 /* Fondos del mapa. Se ven con señal y quedan guardados para usarlos sin ella.
@@ -1537,7 +1538,9 @@ function mostrarAvisoActualizar(trabajador){
    las vías, que costaron datos. Es la salida cuando algo se atasca. */
 async function reinstalar(){
   if(!confirm('Volver a bajar la app desde el servidor.\n\n'+
-              'No se pierden puntos, fincas, mapas ni vías.')) return;
+              'Conserva puntos, fincas, visitas, fotos, mapas y vías.\n\n'+
+              'OJO: esto NO es lo mismo que "Borrar datos" de Chrome.\n'+
+              'Eso sí borra todo, incluidas las descargas del campo.')) return;
   try{
     if('serviceWorker' in navigator){
       const regs = await navigator.serviceWorker.getRegistrations();
@@ -1835,9 +1838,21 @@ function pintarIr(){
     $('#rutaVia').textContent = rutaActual.ultimo>25
       ? 'últimos '+un+' '+uu+' a pie, sin vía'
       : 'la vía llega al punto';
+  } else if(!G){
+    /* Antes esto se escondía sin decir nada y parecía que la función se
+       había perdido. Ahora dice qué falta y se arregla con un toque. */
+    panel.style.display='';
+    panel.classList.add('apagado');
+    $('#rutaGiro').textContent='↓';
+    $('#rutaPaso').textContent='Rutas no disponibles';
+    $('#rutaEn').textContent='faltan las vías de la zona';
+    $('#rutaVia').textContent='toca aquí para descargarlas';
+    $('#rutaTotal').textContent='una vez, con wifi';
   } else {
     panel.style.display='none';
+    panel.classList.remove('apagado');
   }
+  if(rutaActual) panel.classList.remove('apagado');
 
   // anillo de precisión, a escala con la distancia mostrada
   const escala = 74/Math.max(m,10);
@@ -2069,6 +2084,7 @@ $('#mLabels').onclick=function(){ etiquetas=!etiquetas; this.classList.toggle('a
 $('#mBase').onclick=()=>{ const b=ponerBase(baseIdx+1); aviso('Fondo: '+b.nombre); };
 $('#mDesc').onclick=descargarZona;
 $('#mVias').onclick=descargarVias;
+$('#panelRuta').onclick=()=>{ if(!G) descargarVias(); };
 $('#btnGPS').onclick=pedirUbicacion;
 
 /* ---------------------------------------------------------------
@@ -2341,6 +2357,17 @@ function hojaDatos(){
     <p class="mini">Queda escrito en cada visita, para saber quién la levantó.</p>
 
     <hr class="sep">
+    <span class="lbl">Descargas para el campo</span>
+    <div class="strip" style="margin:7px 0 9px">
+      <div><span class="lbl">Vías para rutas</span><b id="dVias" style="font-size:12px">—</b></div>
+      <div><span class="lbl">Piezas de mapa</span><b id="dTes" style="font-size:12px">—</b></div>
+    </div>
+    <button class="btn ghost wide" data-bvias>Descargar vías de la zona</button>
+    <button class="btn ghost wide" style="margin-top:8px" data-bmapa>Descargar fondo del mapa</button>
+    <button class="btn grey wide" style="margin-top:8px" data-expvias>Exportar vías para otro celular</button>
+    <p class="mini">Bájalas una vez en un celular con wifi y pasa el archivo de vías a los demás. Así no le tocan a cada uno.</p>
+
+    <hr class="sep">
     <span class="lbl">Evidencias</span>
     <div class="strip" style="margin:7px 0 9px">
       <div><span class="lbl">Visitas</span><b>${S.visitas.length}</b></div>
@@ -2378,6 +2405,17 @@ function hojaDatos(){
   c.querySelector('[data-csvout]').onclick=exportarCSV;
   c.querySelector('[data-imp]').onclick=()=>{ modoCSV=false; fi.click(); };
   c.querySelector('[data-csv]').onclick=()=>{ modoCSV=true; fi.click(); };
+  (async()=>{
+    const dv=c.querySelector('#dVias'), dt=c.querySelector('#dTes');
+    if(dv) dv.textContent = G ? G.lat.length+' cruces' : 'sin descargar';
+    let n=0;
+    try{ if(window.caches){ const ks=await caches.keys();
+      if(ks.includes('rumbo-teselas')) n=(await (await caches.open('rumbo-teselas')).keys()).length; } }catch(e){}
+    if(dt) dt.textContent = n ? n+' guardadas' : 'sin descargar';
+  })();
+  c.querySelector('[data-bvias]').onclick=()=>{ cerrarHoja(); descargarVias(); };
+  c.querySelector('[data-bmapa]').onclick=()=>{ cerrarHoja(); irA('mapa'); setTimeout(descargarZona,400); };
+  c.querySelector('[data-expvias]').onclick=exportarVias;
   const iq=c.querySelector('#dQuien');
   iq.onchange=()=>{ S.quien=iq.value.trim(); Store.set('quien',S.quien); aviso('Guardado'); };
   c.querySelector('[data-inf]').onclick=informeEvidencias;
@@ -2414,6 +2452,15 @@ function hoy(){ return new Date().toISOString().slice(0,10); }
 /* Informe de evidencias: un solo archivo HTML, con las fotos adentro.
    Se abre en cualquier computador sin instalar nada y se imprime a PDF.
    Es lo que se le entrega al auditor. */
+/* Las vías pesan y bajarlas golpea un servidor público. Se bajan una vez
+   y se pasan por archivo al resto de los celulares. */
+function exportarVias(){
+  if(!G || !G.lat.length) return aviso('Todavía no hay vías descargadas');
+  descargar('vias-'+hoy()+'.json',
+    JSON.stringify({rumboVias:1, fecha:new Date().toISOString(), vias:G}));
+  aviso('Vías exportadas. Pásalo a los otros celulares e impórtalo allá.');
+}
+
 async function informeEvidencias(){
   if(!S.visitas.length) return aviso('Todavía no hay visitas registradas');
   aviso('Armando el informe…');
@@ -2491,6 +2538,16 @@ function exportarCSV(){
 }
 async function importarJSON(txt){
   let j; try{ j=JSON.parse(txt); }catch(e){ return aviso('El archivo no se pudo leer'); }
+
+  /* archivo de vías: entra por el mismo botón de importar */
+  if(j.rumboVias && j.vias && j.vias.lat){
+    G = j.vias;
+    try{ await Store.set('vias', G); }catch(e){}
+    cerrarHoja(); refrescar();
+    if(S.destinoId) recalcular(true);
+    return aviso('Vías cargadas: '+G.lat.length+' cruces. Las rutas ya sirven.');
+  }
+
   let nPtos=0, nFin=0;
   if(j.rumbo){
     if(Array.isArray(j.puntos)){ nPtos=fusionar(j.puntos); }
