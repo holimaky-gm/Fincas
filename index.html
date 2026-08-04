@@ -790,6 +790,15 @@ nav button.on{color:var(--canal);border-top-color:var(--canal)}
 .jn-bot button{flex:1;border:0;border-radius:9px;padding:9px 6px;font-size:12.5px;font-weight:700}
 #planHecha{background:#8FD3A6;color:#12301F}
 #planVer{background:rgba(255,255,255,.16);color:#fff}
+.guia{position:fixed;inset:0;z-index:120;background:var(--papel,#F6F7F3);
+  display:flex;flex-direction:column;padding:26px 22px 22px}
+.guia h2{font-size:23px;margin:0 0 4px}
+.guia .paso{flex:1;display:flex;flex-direction:column;justify-content:center;gap:14px}
+.guia .ico{font-size:44px}
+.guia p{font-size:15px;line-height:1.55;margin:0}
+.guia .pts{display:flex;gap:6px;justify-content:center;margin-bottom:16px}
+.guia .pts i{width:7px;height:7px;border-radius:50%;background:var(--linea)}
+.guia .pts i.on{background:var(--acento);width:20px;border-radius:99px}
 .chk{display:flex;align-items:center;gap:9px;font-size:13.5px}
 .chk input{width:19px;height:19px}
 .mini-todo{float:right;background:transparent;border:0;color:var(--acento);
@@ -978,7 +987,7 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:18px 0}
 <body>
 <div id="app">
   <header>
-    <span class="brand">RUMBO<i id="vTag">v13</i></span>
+    <span class="brand">RUMBO<i id="vTag">v15</i></span>
     <span class="where" id="where">buscando señal…</span>
   </header>
 
@@ -1142,7 +1151,7 @@ const TIPOS = {
   fauna:        {t:'Fauna / bosque',  c:'#6A4C93', s:'FA'},
   otro:         {t:'Otro',            c:'#5A6155', s:'··'}
 };
-const VERSION = 'v13';
+const VERSION = 'v15';
 const tipoDe = k => TIPOS[k] || TIPOS.otro;
 
 /* Fondos del mapa. Se ven con señal y quedan guardados para usarlos sin ella.
@@ -1178,12 +1187,21 @@ const Store = (()=> {
       rq.onsuccess=()=>res(rq.result); rq.onerror=()=>res(undefined);
     });
   }
+  /* Antes esto se tragaba los errores: si el disco estaba lleno, el
+     guardado fallaba y la app seguía como si nada. Ahora devuelve si
+     funcionó, y quien llame decide qué hacer. */
+  let ultimoError=null;
   function set(k,v){
     mem[k]=v;
-    if(useMem||!db) return Promise.resolve();
+    if(useMem||!db) return Promise.resolve(false);
     return new Promise(res=>{
-      const rq = db.transaction('kv','readwrite').objectStore('kv').put(v,k);
-      rq.onsuccess=()=>res(); rq.onerror=()=>res();
+      let tx;
+      try{ tx = db.transaction('kv','readwrite'); }
+      catch(e){ ultimoError=e; return res(false); }
+      const rq = tx.objectStore('kv').put(v,k);
+      rq.onsuccess=()=>res(true);
+      rq.onerror=()=>{ ultimoError=rq.error; res(false); };
+      tx.onabort=()=>{ ultimoError=tx.error; res(false); };
     });
   }
   function del(k){
@@ -1201,7 +1219,7 @@ const Store = (()=> {
       rq.onsuccess=()=>res(rq.result||[]); rq.onerror=()=>res([]);
     });
   }
-  return {open,get,set,del,claves,volatil:()=>useMem};
+  return {open,get,set,del,claves,volatil:()=>useMem,error:()=>ultimoError};
 })();
 
 /* Fincas de Sara Palma incluidas de fábrica: la app abre ya cargada.
@@ -1229,9 +1247,20 @@ const S = {
   vista:'ir'
 };
 
-const guardarPuntos = ()=> Store.set('puntos', S.puntos);
-const guardarVisitas = ()=> Store.set('visitas', S.visitas);
-const guardarTrazos  = ()=> Store.set('trazos', S.trazos);
+async function guardarSeguro(clave, valor, quePierde){
+  const ok = await Store.set(clave, valor);
+  if(!ok && !Store.volatil()){
+    const e=Store.error();
+    const lleno = e && /quota|space/i.test(String(e.name||e.message||''));
+    aviso(lleno
+      ? 'SIN ESPACIO: no se guardó '+quePierde+'. Libera espacio y repite.'
+      : 'No se pudo guardar '+quePierde+'. Vuelve a intentarlo.');
+  }
+  return ok;
+}
+const guardarPuntos = ()=> guardarSeguro('puntos', S.puntos, 'el punto');
+const guardarVisitas = ()=> guardarSeguro('visitas', S.visitas, 'la visita');
+const guardarTrazos  = ()=> guardarSeguro('trazos', S.trazos, 'el trazo');
 const guardarFincas = ()=> Store.set('fincas', S.fincas);
 
 /* ---------------------------------------------------------------
@@ -1691,6 +1720,14 @@ async function textoDiagnostico(){
   L.push('guardado en disco        : '+(Store.volatil()? 'NO (solo memoria)' : 'sí'));
   L.push('puntos / fincas          : '+S.puntos.length+' / '+(S.fincas?S.fincas.features.length:0));
   L.push('trazos guardados         : '+S.trazos.length);
+  try{
+    if(navigator.storage && navigator.storage.estimate){
+      const e=await navigator.storage.estimate();
+      const mb=n=>(n/1048576).toFixed(1)+' MB';
+      L.push('espacio usado            : '+mb(e.usage||0)+
+             (e.quota? ' de '+mb(e.quota)+' ('+Math.round((e.usage/e.quota)*100)+'%)':''));
+    }
+  }catch(err){}
   L.push('visitas / fotos          : '+S.visitas.length+' / '+
          S.visitas.reduce((n,v)=>n+((v.fotos||[]).length),0));
   L.push('brújula                  : '+(S.heading==null? 'sin lectura' : Math.round(S.heading)+'°'));
@@ -1836,7 +1873,8 @@ function procesarFoto(archivo, l1, l2){
 const fotoKey = id => 'foto:'+id;
 async function guardarFoto(dataUrl){
   const id='f'+Date.now().toString(36)+Math.random().toString(36).slice(2,7);
-  await Store.set(fotoKey(id), dataUrl);
+  const ok=await Store.set(fotoKey(id), dataUrl);
+  if(!ok && !Store.volatil()) throw new Error('no se pudo guardar la foto');
   return id;
 }
 async function leerFoto(id){ try{ return await Store.get(fotoKey(id)); }catch(e){ return null; } }
@@ -1928,8 +1966,16 @@ function hojaVisita(puntoId){
     const obs=c.querySelector('#vObs').value.trim();
     if(estado!=='bien' && !obs && !pendientes.length)
       return aviso('Agrega una observación o una foto para respaldar la novedad');
+    /* Una foto que no se guarda es evidencia perdida: si falla, se
+       detiene todo y se le dice, en vez de guardar la visita coja. */
     const fotos=[];
-    for(const d of pendientes){ try{ fotos.push(await guardarFoto(d)); }catch(e){} }
+    for(const d of pendientes){
+      try{ fotos.push(await guardarFoto(d)); }
+      catch(e){
+        return aviso('No se pudieron guardar las fotos ('+(fotos.length)+' de '+
+          pendientes.length+'). Revisa el espacio en Datos y repite.');
+      }
+    }
     S.visitas.push({
       id:'v'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),
       puntoId, cuando:Date.now(), quien:S.quien||'', estado, obs,
@@ -1939,8 +1985,7 @@ function hojaVisita(puntoId){
     await guardarVisitas();
     /* si estaba en el recorrido, esa parada queda cumplida sola */
     const act=paradaActual();
-    if(act && ((act.clase==='punto' && act.id===puntoId) ||
-               (act.clase==='trazo' && 'tz_'+act.id===puntoId))){
+    if(act && (act.clase==='punto' ? act.id===puntoId : idTemporal(act)===puntoId)){
       act.hecho=true; act.cuando=Date.now(); await guardarPlan();
       const sig=paradaActual();
       if(sig) apuntarAParada();
@@ -2271,12 +2316,136 @@ function hojaIrCoord(){
   };
 }
 
+/* Sin esto, el navegador puede botar los datos por su cuenta cuando el
+   teléfono se queda sin espacio — sin avisar y sin que nadie lo pida.
+   Pedir permiso persistente es la única defensa real que existe. */
+/* Los practicantes reciben un enlace y nada más. Sin esto, la primera
+   pregunta llega por WhatsApp desde la mitad de una finca. */
+const GUIA = [
+  {i:'📍', t:'Activa la ubicación',
+   p:'Toca "Activar ubicación" y acepta el permiso. Sin eso la app no sabe dónde estás y no sirve de nada.'},
+  {i:'🧭', t:'Elige a dónde vas',
+   p:'En Puntos escoges el pozo, vertimiento o lo que busques. La flecha roja te apunta y el número te dice los metros que faltan.'},
+  {i:'📷', t:'Registra lo que encontraste',
+   p:'Al llegar, abre el punto y toca "Registrar visita". Marca cómo lo encontraste, escribe la observación y toma fotos. Eso es la evidencia.'},
+  {i:'📶', t:'Prepárala antes de salir',
+   p:'Con wifi, entra a Mapa y descarga el fondo y las vías. En el campo casi nunca hay señal, y así funciona igual.'},
+  {i:'💾', t:'Todo vive en este celular',
+   p:'No hay servidor ni cuenta. Exporta el paquete y el respaldo de fotos cada tanto, o si se daña el teléfono se pierde el trabajo.'}
+];
+
+function mostrarGuia(){
+  let i=0;
+  const el=document.createElement('div');
+  el.className='guia'; el.id='guia';
+  const pintar=()=>{
+    const g=GUIA[i];
+    el.innerHTML=`
+      <div class="paso">
+        <div class="ico">${g.i}</div>
+        <h2>${esc(g.t)}</h2>
+        <p>${esc(g.p)}</p>
+      </div>
+      <div class="pts">${GUIA.map((_,k)=>`<i class="${k===i?'on':''}"></i>`).join('')}</div>
+      <button class="btn wide" id="g_ok">${i<GUIA.length-1?'Siguiente':'Entendido'}</button>
+      ${i<GUIA.length-1?'<button class="btn grey wide" style="margin-top:9px" id="g_no">Saltar</button>':''}`;
+    el.querySelector('#g_ok').onclick=()=>{
+      if(i<GUIA.length-1){ i++; pintar(); } else cerrar();
+    };
+    const no=el.querySelector('#g_no');
+    if(no) no.onclick=cerrar;
+  };
+  const cerrar=()=>{ el.remove(); Store.set('guiaVista', Date.now()); };
+  pintar();
+  document.body.appendChild(el);
+}
+
+/* Cuando un practicante devuelve el celular, o se presta a otra persona,
+   los datos de la empresa no se pueden quedar ahí. Borrar los datos del
+   sitio desde Chrome funciona, pero nadie sabe hacerlo ni se acuerda. */
+function hojaBorrarTodo(){
+  const nF=S.visitas.reduce((n,v)=>n+((v.fotos||[]).length),0);
+  abrirHoja(`
+    <h3>Borrar todo de este teléfono</h3>
+    <p class="mini" style="margin:-6px 0 12px">Para cuando se devuelve el equipo o se le entrega a otra persona. No se puede deshacer.</p>
+    <div class="strip" style="margin-bottom:12px">
+      <div><span class="lbl">Puntos</span><b>${S.puntos.filter(p=>!p.temporal).length}</b></div>
+      <div><span class="lbl">Visitas</span><b>${S.visitas.length}</b></div>
+      <div><span class="lbl">Fotos</span><b>${nF}</b></div>
+    </div>
+    <p class="mini" style="color:var(--peligro,#C41E5A)">Se borran los puntos, las visitas, las fotos, los trazos y el recorrido. Los mapas y vías descargados también.</p>
+    <label class="chk" style="margin:14px 0"><input type="checkbox" id="bt_ok2"> Ya exporté lo que había que guardar</label>
+    <button class="btn danger wide" id="bt_ok" disabled>Borrar definitivamente</button>
+    <button class="btn grey wide" style="margin-top:9px" data-close>Cancelar</button>`);
+  const c=$('#sheetCard'), b=c.querySelector('#bt_ok');
+  c.querySelector('#bt_ok2').onchange=e=>{ b.disabled=!e.target.checked; };
+  b.onclick=async()=>{
+    if(!confirm('Última confirmación: se borra todo de este teléfono.')) return;
+    b.disabled=true; b.textContent='Borrando…';
+    try{
+      const ks=await Store.claves();
+      for(const k of ks) await Store.del(k);
+    }catch(e){}
+    try{
+      if(window.caches){
+        const ks=await caches.keys();
+        await Promise.all(ks.map(k=>caches.delete(k)));
+      }
+    }catch(e){}
+    try{ localStorage.removeItem('rumbo_base'); }catch(e){}
+    location.replace(location.pathname+'?limpio='+Date.now());
+  };
+}
+
+async function pedirPersistencia(){
+  try{
+    if(!navigator.storage || !navigator.storage.persist) return null;
+    if(await navigator.storage.persisted()) return true;
+    return await navigator.storage.persist();
+  }catch(e){ return null; }
+}
+
+async function espacio(){
+  try{
+    if(!navigator.storage || !navigator.storage.estimate) return null;
+    const e=await navigator.storage.estimate();
+    if(!e || !e.quota) return null;
+    return {usado:e.usage||0, tope:e.quota, pct:(e.usage||0)/e.quota};
+  }catch(e){ return null; }
+}
+
+async function revisarEspacio(){
+  const e=await espacio();
+  if(!e || e.pct<0.8) return;
+  const el=document.createElement('div');
+  el.className='aviso-act'; el.id='avisoEsp';
+  el.style.background='#C41E5A';
+  el.innerHTML='<b>Poco espacio: '+Math.round(e.pct*100)+
+    '% usado. Las fotos nuevas pueden no guardarse.</b><button>Ver</button>';
+  el.querySelector('button').onclick=()=>{ el.remove(); irA('puntos'); hojaDatos(); };
+  document.body.appendChild(el);
+}
+
 /* Ya perdimos datos una vez por borrar los del sitio. Un recordatorio
    discreto vale más que otra explicación después del hecho. */
 async function revisarRespaldo(){
   if(!S.puntos.length && !S.visitas.length) return;
+  const nFotos = S.visitas.reduce((n,v)=>n+((v.fotos||[]).length),0);
   const ult = await Store.get('ultimoRespaldo');
+  const ultF = await Store.get('ultimoRespaldoFotos');
   const dias = ult ? Math.floor((Date.now()-ult)/86400000) : 999;
+  const diasF = ultF ? Math.floor((Date.now()-ultF)/86400000) : 999;
+  /* las fotos son lo irrecuperable: se insiste antes con ellas */
+  if(nFotos && diasF>=10 && diasF>dias){
+    const el=document.createElement('div');
+    el.className='aviso-act'; el.id='avisoResp';
+    el.innerHTML='<b>'+nFotos+' fotos sin respaldar'+
+      (ultF? ' hace '+diasF+' días':' nunca')+'</b><button>Respaldar</button>';
+    el.querySelector('button').onclick=()=>{ el.remove(); irA('puntos'); hojaRespaldoFotos(); };
+    setTimeout(()=>{ const e=document.getElementById('avisoResp'); if(e) e.remove(); },14000);
+    document.body.appendChild(el);
+    return;
+  }
   if(dias<14) return;
   const el=document.createElement('div');
   el.className='aviso-act'; el.id='avisoResp';
@@ -2307,8 +2476,25 @@ async function revisarRespaldo(){
    área medida (un reservorio, por ejemplo). */
 function paradasDisponibles(){
   const out=[];
-  S.puntos.forEach(p=>out.push({clase:'punto', id:p.id, nombre:p.nombre,
-    lat:p.lat, lon:p.lon, finca:p.finca||'Sin finca', detalle:tipoDe(p.tipo).t}));
+
+  /* La finca entera es una parada válida: a veces hay que ir a la finca,
+     no a un punto suyo. Se apunta a su centro, y la ruta engancha sola a
+     la vía más cercana, que en la práctica es por donde se entra. */
+  if(S.fincas) S.fincas.features.forEach(f=>{
+    const c=centroide(f); if(!c) return;
+    const nom=nombreFinca(f);
+    const pr=f.properties||{};
+    const ha=pr.ha || pr.ha_calc || pr.HA || pr.area_ha;
+    const zona=pr.zona||pr.ZONA||'';
+    out.push({clase:'finca', id:nom, nombre:nom, lat:c[0], lon:c[1], finca:nom,
+      detalle:'Finca completa'+(ha? ' · '+(+ha).toFixed(1)+' ha':'')+(zona? ' · '+zona:'')});
+  });
+
+  S.puntos.forEach(p=>{
+    if(p.temporal) return;               // los destinos de paso no son paradas
+    out.push({clase:'punto', id:p.id, nombre:p.nombre,
+      lat:p.lat, lon:p.lon, finca:p.finca||'Sin finca', detalle:tipoDe(p.tipo).t});
+  });
   S.trazos.forEach(t=>{
     if(!t.pts || !t.pts.length) return;
     const [la,lo]=centroTrazo(t);
@@ -2459,7 +2645,8 @@ function hojaPlanear(){
       </div></div>`;
   }
   const cuerpo=()=>fincas.map(f=>{
-    const ps=disp.filter(p=>p.finca===f);
+    const ps=disp.filter(p=>p.finca===f)
+      .sort((a,b)=>(a.clase==='finca'?0:1)-(b.clase==='finca'?0:1));
     return `<div class="grp" style="margin-top:10px">${esc(f)}
       <button class="mini-todo" data-finca="${esc(f)}">todos</button></div>`+ps.map(fila).join('');
   }).join('');
@@ -2551,15 +2738,20 @@ function hojaPlanResumen(paradas, r, volver){
 
 /* Apunta la navegación a la parada pendiente. Si es un área, se crea
    un destino temporal en su centro para poder usar la misma brújula. */
+const idTemporal = p => 'tz_'+p.clase+'_'+p.id;
+
 function apuntarAParada(){
   const p=paradaActual();
-  if(!p){ return; }
+  if(!p) return;
   if(p.clase==='punto'){ S.destinoId=p.id; Store.set('destino',p.id); return; }
-  let tmp=S.puntos.find(x=>x.id==='tz_'+p.id);
+  const tid=idTemporal(p);
+  let tmp=S.puntos.find(x=>x.id===tid);
   if(!tmp){
-    tmp={id:'tz_'+p.id, nombre:p.nombre, tipo:'otro', finca:p.finca,
-      lat:p.lat, lon:p.lon, notas:'Centro del área medida.', temporal:true,
-      permiso:'', vence:'', creado:new Date().toISOString()};
+    tmp={id:tid, nombre:p.nombre, tipo:'otro', finca:p.finca,
+      lat:p.lat, lon:p.lon, temporal:true, permiso:'', vence:'',
+      notas: p.clase==='finca' ? 'Centro de la finca. La ruta entra por la vía más cercana.'
+                               : 'Centro del área medida.',
+      creado:new Date().toISOString()};
     S.puntos.push(tmp); guardarPuntos();
   }
   S.destinoId=tmp.id; Store.set('destino',tmp.id);
@@ -3086,7 +3278,7 @@ async function descargarZona(){
    --------------------------------------------------------------- */
 function pintarSelFinca(){
   const sel=$('#selFinca'); if(!sel) return;
-  const fincas=[...new Set(S.puntos.map(p=>p.finca||'Sin finca'))].sort();
+  const fincas=[...new Set(S.puntos.filter(p=>!p.temporal).map(p=>p.finca||'Sin finca'))].sort();
   const actual=S.finca;
   sel.innerHTML='<option value="">Todas las fincas</option>'+
     fincas.map(f=>{
@@ -3130,6 +3322,7 @@ function pintarLista(){
   if(S.vista!=='puntos' && !document.hidden) { /* aún así refrescamos distancias */ }
   const q=S.busca.toLowerCase();
   let ps=S.puntos.filter(p=>
+    !p.temporal &&
     (S.filtro==='todos'||p.tipo===S.filtro) &&
     (!S.finca || (p.finca||'Sin finca')===S.finca) &&
     (!S.filtroN || (S.filtroN==='vence'
@@ -3372,6 +3565,16 @@ function hojaDatos(){
     })()}
 
     <hr class="sep">
+    <span class="lbl">Espacio y respaldo</span>
+    <div class="strip" style="margin:7px 0 9px">
+      <div><span class="lbl">Espacio usado</span><b id="d_esp" style="font-size:12px">—</b></div>
+      <div><span class="lbl">Protegido</span><b id="d_pers" style="font-size:12px">—</b></div>
+    </div>
+    <div id="d_espBar" style="height:6px;border-radius:99px;background:var(--linea);
+      overflow:hidden;margin-bottom:10px"><i style="display:block;height:100%;width:0;
+      background:var(--acento)"></i></div>
+
+    <hr class="sep">
     <span class="lbl">Descargas para el campo</span>
     <div class="strip" style="margin:7px 0 9px">
       <div><span class="lbl">Vías para rutas</span><b id="dVias" style="font-size:12px">—</b></div>
@@ -3425,6 +3628,8 @@ function hojaDatos(){
       <div><span class="lbl">Fotos</span><b>${S.visitas.reduce((n,v)=>n+((v.fotos||[]).length),0)}</b></div>
     </div>
     <button class="btn wide" data-inf>Informe de evidencias (.html)</button>
+    <button class="btn ghost wide" style="margin-top:9px" data-rfot>Respaldo de fotos (.json)</button>
+    <p class="mini">Las fotos no van en el paquete normal: lo volverían inmanejable. Este es su respaldo, en archivos separados.</p>
     <p class="mini">Un archivo con las fotos adentro. Se abre en cualquier computador y se imprime a PDF.</p>
 
     <hr class="sep">
@@ -3447,8 +3652,10 @@ function hojaDatos(){
     <hr class="sep">
     <span class="lbl">Versión y diagnóstico</span>
     <div class="diag" id="diag">leyendo…</div>
-    <button class="btn ghost wide" style="margin-top:7px" data-recargar>Buscar versión nueva</button>
+    <button class="btn ghost wide" style="margin-top:7px" data-guia>Ver la guía de uso</button>
+    <button class="btn ghost wide" style="margin-top:9px" data-recargar>Buscar versión nueva</button>
     <button class="btn grey wide" style="margin-top:9px" data-reinst>Volver a instalar la app</button>
+    <button class="btn danger wide" style="margin-top:9px" data-borrar>Borrar todo de este teléfono</button>
     <p class="mini" style="margin-top:8px">Si subiste cambios y el celular sigue igual, usa <b>Volver a instalar</b>. No se pierden puntos, fincas, mapas ni vías.</p>
     <input type="file" id="fi" accept=".json,.geojson,.csv,.txt" style="display:none">`);
   const c=$('#sheetCard'), fi=c.querySelector('#fi');
@@ -3481,14 +3688,32 @@ function hojaDatos(){
   c.querySelector('[data-bvias]').onclick=()=>{ cerrarHoja(); descargarVias(); };
   c.querySelector('[data-bmapa]').onclick=()=>{ cerrarHoja(); irA('mapa'); setTimeout(descargarZona,400); };
   c.querySelector('[data-expvias]').onclick=exportarVias;
+  (async()=>{
+    const e=await espacio(), de=c.querySelector('#d_esp'), dp=c.querySelector('#d_pers');
+    if(de) de.textContent = e
+      ? (e.usado/1048576).toFixed(1)+' MB de '+(e.tope/1048576).toFixed(0)+' MB'
+      : 'no se puede medir';
+    const barra=c.querySelector('#d_espBar i');
+    if(barra && e){
+      barra.style.width=Math.min(100,Math.round(e.pct*100))+'%';
+      barra.style.background = e.pct>0.8 ? '#C41E5A' : e.pct>0.6 ? '#C08A1E' : 'var(--acento)';
+    }
+    let pers=null;
+    try{ pers = navigator.storage && navigator.storage.persisted
+      ? await navigator.storage.persisted() : null; }catch(err){}
+    if(dp) dp.textContent = pers===true ? 'sí' : pers===false ? 'no' : '—';
+  })();
   const ic=c.querySelector('#d_ciclo');
   ic.onchange=async()=>{ S.ciclo=ic.value||''; await Store.set('ciclo',S.ciclo);
     cerrarHoja(); refrescar(); hojaDatos(); };
   const iq=c.querySelector('#dQuien');
   iq.onchange=()=>{ S.quien=iq.value.trim(); Store.set('quien',S.quien); aviso('Guardado'); };
   c.querySelector('[data-inf]').onclick=()=>informeEvidencias(null);
+  c.querySelector('[data-rfot]').onclick=hojaRespaldoFotos;
   textoDiagnostico().then(t=>{ const d=c.querySelector('#diag'); if(d) d.textContent=t; });
   c.querySelector('[data-reinst]').onclick=reinstalar;
+  c.querySelector('[data-guia]').onclick=()=>{ cerrarHoja(); mostrarGuia(); };
+  c.querySelector('[data-borrar]').onclick=hojaBorrarTodo;
   c.querySelector('[data-recargar]').onclick=async()=>{
     if(!regSW) return aviso('Sin service worker: ábrela desde su enlace https');
     aviso('Buscando…');
@@ -3643,6 +3868,67 @@ function exportarGeoJSON(){
   if(!S.trazos.length && !S.puntos.length) return aviso('No hay nada que exportar');
   descargar('rumbo-'+hoy()+'.geojson', JSON.stringify(trazosGeoJSON(),null,1), 'application/geo+json');
   aviso('GeoJSON listo. Ábrelo en QGIS.');
+}
+
+/* El paquete normal no lleva fotos porque lo volvería inmanejable.
+   Pero entonces la evidencia solo existe en este teléfono, y eso es un
+   riesgo real. Se saca por partes: cada archivo queda de un tamaño que
+   sí se puede mandar y guardar. */
+const TOPE_PARTE = 18 * 1024 * 1024;      // ~18 MB por archivo
+
+async function hojaRespaldoFotos(){
+  const conFoto = S.visitas.filter(v=>(v.fotos||[]).length);
+  const nFotos = conFoto.reduce((n,v)=>n+v.fotos.length,0);
+  if(!nFotos) return aviso('Todavía no hay fotos que respaldar');
+
+  abrirHoja(`
+    <h3>Respaldo de fotos</h3>
+    <p class="mini" style="margin:-6px 0 12px">Las fotos son lo único que no se puede volver a conseguir. Guarda estos archivos fuera del teléfono.</p>
+    <div class="strip" style="margin-bottom:12px">
+      <div><span class="lbl">Visitas con foto</span><b>${conFoto.length}</b></div>
+      <div><span class="lbl">Fotos</span><b>${nFotos}</b></div>
+    </div>
+    <div id="rf_estado" class="mini">Midiendo el tamaño…</div>
+    <div id="rf_partes" style="margin-top:10px"></div>
+    <p class="mini" style="margin-top:12px">Para restaurar, importa estos archivos con <b>Importar paquete</b>, uno por uno.</p>`);
+
+  const c=$('#sheetCard');
+  /* Se arman las partes midiendo de verdad, no estimando: las fotos
+     varían mucho de tamaño según lo que tenga delante la cámara. */
+  const partes=[]; let actual=[], peso=0;
+  for(const v of conFoto){
+    const fotos={};
+    let pv=0;
+    for(const fid of v.fotos){
+      const d=await leerFoto(fid);
+      if(d){ fotos[fid]=d; pv+=d.length; }
+    }
+    if(!pv) continue;
+    if(peso+pv>TOPE_PARTE && actual.length){ partes.push(actual); actual=[]; peso=0; }
+    actual.push({visita:v.id, fotos}); peso+=pv;
+  }
+  if(actual.length) partes.push(actual);
+
+  const mb=n=>(n/1048576).toFixed(1)+' MB';
+  const pesoDe=p=>p.reduce((n,x)=>n+Object.values(x.fotos).reduce((m,d)=>m+d.length,0),0);
+
+  c.querySelector('#rf_estado').textContent =
+    partes.length===1 ? 'Un solo archivo de '+mb(pesoDe(partes[0]))+'.'
+    : partes.length+' archivos, porque uno solo sería demasiado grande para compartir.';
+
+  c.querySelector('#rf_partes').innerHTML = partes.map((p,i)=>
+    `<button class="btn ghost wide" style="margin-top:8px" data-p="${i}">
+      Guardar parte ${i+1} de ${partes.length} · ${mb(pesoDe(p))}</button>`).join('');
+
+  c.querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>{
+    const i=+b.dataset.p;
+    descargar('rumbo-fotos-'+(i+1)+'de'+partes.length+'-'+hoy()+'.json',
+      JSON.stringify({rumboFotos:1, parte:i+1, de:partes.length,
+        fecha:new Date().toISOString(), lote:partes[i]}));
+    b.textContent='✓ Parte '+(i+1)+' guardada';
+    b.classList.add('grey');
+    Store.set('ultimoRespaldoFotos', Date.now());
+  });
 }
 
 function hojaExportar(){
@@ -3813,6 +4099,20 @@ function exportarPaquete(){
 async function importarJSON(txt){
   let j; try{ j=JSON.parse(txt); }catch(e){ return aviso('El archivo no se pudo leer'); }
 
+  /* respaldo de fotos: vuelve a poner las imágenes en su sitio */
+  if(j.rumboFotos && Array.isArray(j.lote)){
+    let n=0, fallo=0;
+    for(const item of j.lote){
+      for(const [fid,dataUrl] of Object.entries(item.fotos||{})){
+        try{ (await Store.set(fotoKey(fid), dataUrl)) ? n++ : fallo++; }
+        catch(e){ fallo++; }
+      }
+    }
+    cerrarHoja(); refrescar();
+    return aviso(n+' fotos restauradas'+(fallo? ', '+fallo+' fallaron':'')+
+      (j.de>1? ' (parte '+j.parte+' de '+j.de+')':''));
+  }
+
   /* archivo de vías: entra por el mismo botón de importar */
   if(j.rumboVias && j.vias && j.vias.lat){
     G = j.vias;
@@ -3937,7 +4237,10 @@ function refrescar(){ pintarSelFinca(); pintarChips(); pintarLista(); pintarIr()
   if(migrado) guardarPuntos();
   S.quien   = (await Store.get('quien')) || '';
   cargarGrafo();
+  pedirPersistencia();
+  if(!(await Store.get('guiaVista'))) setTimeout(mostrarGuia, 700);
   setTimeout(revisarRespaldo, 6000);
+  setTimeout(revisarEspacio, 9000);
   S.destinoId = (await Store.get('destino')) || null;
   iniciarMapa();
   refrescar();
