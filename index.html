@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1,user-scalable=no">
-<meta name="theme-color" content="#0C1A14">
+<meta name="theme-color" content="#080F0C">
 <title>Rumbo — puntos de finca</title>
 <link rel="manifest" href="manifest.webmanifest">
 <style>/* required styles */
@@ -669,50 +669,86 @@ svg.leaflet-image-layer.leaflet-interactive path {
 	}
 </style>
 <style>/* ===================================================================
-   RUMBO — sistema visual
+   RUMBO — consola de campo
 
-   De dónde sale: el mundo real de una finca bananera en Urabá.
-   · la CINTA de color que se amarra al racimo para marcar la semana
-     de corte — un sistema de datos por color, no un adorno
-   · la BOLSA azul que cubre el racimo, el color más reconocible del
-     paisaje
-   · el CANAL de drenaje, la retícula ortogonal de toda la zona
-   · la ESFERA del instrumento: fondo oscuro para que la aguja se lea
-     bajo el sol de mediodía
+   Dirección: panel oscuro con acento verde vivo. El fondo se aparta
+   para que manden el dato y el estado; el color solo aparece donde
+   significa algo.
 
-   La cinta es el elemento firma: una lengüeta con la cola cortada en
-   pico, igual que la que cuelga del racimo, que aparece en cada fila
-   de datos codificando categoría por color.
+   De dónde sale: sigue siendo el mundo de la finca bananera de Urabá
+   — la CINTA de color que marca la semana de corte, la BOLSA azul del
+   racimo, la retícula de CANALES — pero ahora sobre el verde profundo
+   del cultivo de noche, que es cuando se planea el día siguiente.
+
+   El sol de mediodía no perdona un fondo oscuro: por eso existe MODO
+   CAMPO, que invierte a alto contraste con un toque.
    =================================================================== */
 
 :root{
-  /* ---- pigmentos ---- */
-  --tinta:#0C1A14;        /* verde casi negro: bajo el dosel */
-  --hoja:#17392B;         /* hoja de banano en sombra */
-  --bolsa:#1D6FC0;        /* la bolsa azul del racimo */
-  --bolsa-hi:#3389DC;
-  --papel:#F0F3EE;        /* fondo, frío y no crema */
-  --latex:#D6DED2;        /* bordes y separadores */
-  --latex-2:#E6EBE2;
+  /* ---- superficies ---- */
+  --fondo:#080F0C;
+  --carta:#111C16;
+  --carta-2:#18261E;
+  --borde:rgba(255,255,255,.075);
+  --borde-2:rgba(255,255,255,.13);
+
+  /* ---- acento ---- */
+  --verde:#3DDC84;          /* el vivo: acciones y estado activo */
+  --verde-2:#2FB86C;
+  --verde-hondo:#1B5E3A;    /* botón sólido */
+  --bolsa:#3B8FE0;          /* la bolsa azul del racimo */
 
   /* ---- cintas: color como dato ---- */
-  --cinta-rojo:#C63A2F;
-  --cinta-amar:#E0A11C;
-  --cinta-verde:#3C8F5C;
+  --cinta-rojo:#F4614C;
+  --cinta-amar:#F0B429;
+  --cinta-verde:#3DDC84;
+  --cinta-mora:#A78BFA;
+  --cinta-cafe:#D08A45;
+  --cinta-turq:#38BDC8;
+
+  /* ---- texto ---- */
+  --texto:#E9F1EB;
+  --texto-2:#93A79B;
+  --texto-3:#6E8177;
+
+  --peligro:#F4614C;
+  --warn:#F0B429;
+
+  --r-sm:11px; --r-md:16px; --r-lg:22px; --r-xl:28px;
+  --sombra:0 1px 2px rgba(0,0,0,.35), 0 8px 26px rgba(0,0,0,.30);
+  --sombra-alta:0 14px 48px rgba(0,0,0,.55);
+  --tap:46px;
+
+  --papel:var(--fondo);
+  --tinta:var(--fondo);
+  --latex:var(--borde);
+  --latex-2:var(--carta-2);
+  --hoja:var(--verde-hondo);
+}
+
+/* MODO CAMPO — a pleno sol el panel oscuro deja de servir.
+   Mismo diseño, contraste invertido, un toque para cambiar. */
+body.campo{
+  --fondo:#F2F5F0;
+  --carta:#FFFFFF;
+  --carta-2:#E8EDE6;
+  --borde:rgba(8,15,12,.10);
+  --borde-2:rgba(8,15,12,.18);
+  --verde:#0E8F4C;
+  --verde-2:#0B7A40;
+  --verde-hondo:#0E8F4C;
+  --bolsa:#1665C0;
+  --cinta-rojo:#C3392C;
+  --cinta-amar:#B07C10;
+  --cinta-verde:#0E8F4C;
   --cinta-mora:#6B4E9E;
-  --cinta-cafe:#B8752A;
-  --cinta-negro:#2F2F2F;
-
-  --texto:#0E1A15;
-  --texto-2:#5C6B62;
-  --texto-3:#8A968E;
-  --peligro:#C63A2F;
-  --warn:#B07C10;
-
-  --r-sm:9px; --r-md:14px; --r-lg:20px; --r-xl:26px;
-  --sombra:0 1px 2px rgba(12,26,20,.06), 0 6px 20px rgba(12,26,20,.07);
-  --sombra-alta:0 10px 40px rgba(12,26,20,.22);
-  --tap:46px;                       /* mínimo con guantes y a pleno sol */
+  --cinta-cafe:#9A6425;
+  --cinta-turq:#0E7C86;
+  --texto:#0A1310;
+  --texto-2:#4C5C53;
+  --texto-3:#5F6F66;
+  --sombra:0 1px 2px rgba(8,15,12,.07), 0 6px 20px rgba(8,15,12,.08);
+  --sombra-alta:0 12px 40px rgba(8,15,12,.22);
 }
 
 /* ---- tipografía ---- */
@@ -729,636 +765,615 @@ svg.leaflet-image-layer.leaflet-interactive path {
 
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;padding:0;height:100%}
-
 body{
   font-family:'Archivo',system-ui,-apple-system,sans-serif;
   font-variation-settings:'wdth' 100;
-  font-size:15px; line-height:1.5;
-  color:var(--texto); background:var(--papel);
-  -webkit-font-smoothing:antialiased;
-  overscroll-behavior:none;
+  font-size:15px;line-height:1.5;
+  color:var(--texto);background:var(--fondo);
+  -webkit-font-smoothing:antialiased;overscroll-behavior:none;
+  transition:background .3s,color .3s;
 }
 
-/* Rótulo: el lenguaje de la señalización de finca — ancho, en versales,
-   muy espaciado. Se usa poco, y por eso pesa. */
 .rotulo,.lbl,.eyebrow{
-  font-variation-settings:'wdth' 118,'wght' 700;
-  font-size:10px; text-transform:uppercase; letter-spacing:.13em;
+  font-variation-settings:'wdth' 116,'wght' 700;
+  font-size:10px;text-transform:uppercase;letter-spacing:.13em;
   color:var(--texto-3);
 }
-h1,h2,h3{
-  font-variation-settings:'wdth' 108,'wght' 750;
-  letter-spacing:-.015em; margin:0; line-height:1.15;
+h1,h2,h3,h4{
+  font-variation-settings:'wdth' 106,'wght' 750;
+  letter-spacing:-.018em;margin:0;line-height:1.15;
 }
-h3{font-size:20px}
+h3{font-size:21px}
 .mono,.num,.d,.km{font-family:'MartianMono',ui-monospace,monospace;font-feature-settings:'tnum'}
 
 /* ===================================================================
    ARMAZÓN
    =================================================================== */
-#app{display:flex;flex-direction:column;height:100dvh;overflow:hidden}
+#app{display:flex;flex-direction:column;height:100dvh;overflow:hidden;background:var(--fondo)}
 
 header{
-  background:var(--tinta); color:#fff;
-  padding:calc(env(safe-area-inset-top,0px) + 11px) 16px 11px;
+  padding:calc(env(safe-area-inset-top,0px) + 13px) 17px 12px;
   display:flex;align-items:center;gap:10px;flex:none;
-  position:relative;
-}
-/* franja de cintas: el índice de semanas del racimo */
-header::after{
-  content:'';position:absolute;left:0;right:0;bottom:0;height:2px;
-  background:linear-gradient(90deg,
-    var(--cinta-rojo) 0 16.66%, var(--cinta-amar) 16.66% 33.3%,
-    var(--cinta-verde) 33.3% 50%,  var(--bolsa) 50% 66.6%,
-    var(--cinta-mora) 66.6% 83.3%, var(--cinta-cafe) 83.3% 100%);
-  opacity:.9;
+  background:var(--fondo);position:relative;z-index:2;
 }
 .brand{
-  font-variation-settings:'wdth' 125,'wght' 800;
-  font-size:16px; letter-spacing:.16em; text-transform:uppercase;
+  font-variation-settings:'wdth' 122,'wght' 800;
+  font-size:17px;letter-spacing:.14em;text-transform:uppercase;color:var(--texto);
 }
+.brand::after{content:'';display:inline-block;width:5px;height:5px;border-radius:50%;
+  background:var(--verde);margin-left:7px;vertical-align:middle}
 .brand i{
-  font-style:normal;font-family:'MartianMono',monospace;
-  font-size:9px;font-weight:500;opacity:.5;margin-left:7px;
-  letter-spacing:0;vertical-align:super;
+  font-style:normal;font-family:'MartianMono',monospace;font-size:9px;
+  font-weight:500;color:var(--texto-3);margin-left:8px;letter-spacing:0;
+  vertical-align:super;
 }
 .where{
-  margin-left:auto;font-size:11px;color:rgba(255,255,255,.62);
+  margin-left:auto;font-size:11px;color:var(--texto-2);
   font-variation-settings:'wdth' 94;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:44%;
 }
 .grabando{
-  margin-left:auto;background:var(--cinta-rojo);color:#fff;
+  margin-left:auto;background:var(--cinta-rojo);color:#1A0A08;
   font-size:9.5px;font-variation-settings:'wdth' 112,'wght' 800;
-  padding:4px 9px;border-radius:99px;letter-spacing:.08em;
+  padding:4px 10px;border-radius:99px;letter-spacing:.08em;
   text-transform:uppercase;animation:lat 1.7s ease-in-out infinite;
 }
-@keyframes lat{50%{opacity:.4}}
+@keyframes lat{50%{opacity:.42}}
 
 main{flex:1;overflow:hidden;position:relative}
 .view{
-  position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;
-  display:none;-webkit-overflow-scrolling:touch;
-  padding-bottom:14px;
+  position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;display:none;
+  -webkit-overflow-scrolling:touch;padding-bottom:22px;
 }
-.view.on{display:block;animation:entra .26s cubic-bezier(.2,.8,.3,1)}
-@keyframes entra{from{opacity:0;transform:translateY(7px)}}
-#ir{padding:0 0 18px}
-#puntos{padding:0}
+.view.on{display:block;animation:entra .28s cubic-bezier(.2,.85,.3,1)}
+@keyframes entra{from{opacity:0;transform:translateY(8px)}}
+#ir,#puntos{padding-top:0}
 
+/* ---- barra inferior con botón alzado ---- */
 nav{
-  flex:none;display:flex;background:var(--tinta);
+  flex:none;display:flex;align-items:flex-start;
+  background:var(--carta);border-top:1px solid var(--borde);
   padding-bottom:env(safe-area-inset-bottom,0px);
-  box-shadow:0 -1px 0 rgba(255,255,255,.07);
+  position:relative;
 }
 nav button{
-  flex:1;background:none;border:0;color:rgba(255,255,255,.5);
+  flex:1;background:none;border:0;color:var(--texto-3);
   padding:11px 4px 12px;display:flex;flex-direction:column;
-  align-items:center;gap:5px;
-  font-size:10px;font-variation-settings:'wdth' 112,'wght' 700;
-  letter-spacing:.07em;text-transform:uppercase;
-  position:relative;transition:color .2s;
+  align-items:center;gap:5px;position:relative;
+  font-size:9.5px;font-variation-settings:'wdth' 112,'wght' 700;
+  letter-spacing:.07em;text-transform:uppercase;transition:color .2s;
 }
 nav button svg{width:22px;height:22px;fill:none;stroke:currentColor;
   stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
-nav button.on{color:#fff}
-/* la cinta marca la pestaña activa */
+nav button.on{color:var(--verde)}
 nav button.on::before{
   content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);
-  width:30px;height:3px;border-radius:0 0 3px 3px;background:var(--bolsa);
+  width:26px;height:2.5px;border-radius:0 0 3px 3px;background:var(--verde);
 }
 
 /* ===================================================================
-   INSTRUMENTO — la pieza que se mira caminando
+   TARJETAS — la unidad de todo
    =================================================================== */
-.instrumento{
-  background:var(--tinta);
-  padding:20px 16px 24px;
-  border-radius:0 0 var(--r-xl) var(--r-xl);
-  position:relative;overflow:hidden;
+.carta{
+  background:var(--carta);border:1px solid var(--borde);
+  border-radius:var(--r-lg);padding:15px 16px;margin:0 15px 11px;
 }
-/* retícula tenue: los canales de drenaje de la zona */
-.instrumento::before{
-  content:'';position:absolute;inset:0;opacity:.055;pointer-events:none;
-  background-image:linear-gradient(rgba(255,255,255,.9) 1px,transparent 1px),
-                   linear-gradient(90deg,rgba(255,255,255,.9) 1px,transparent 1px);
-  background-size:26px 26px;
+.carta-cab{display:flex;align-items:center;justify-content:space-between;
+  gap:10px;margin-bottom:12px}
+.carta-cab h4{font-size:13.5px;font-variation-settings:'wdth' 104,'wght' 700}
+.carta-cab a,.carta-cab button.enlace{
+  background:none;border:0;color:var(--verde);font-family:inherit;
+  font-size:11.5px;font-variation-settings:'wght' 700;padding:0;
+  display:flex;align-items:center;gap:3px;
 }
 
+/* ---- fichas de cifra: la retícula 2×2 del resumen ---- */
+.fichas{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.ficha{
+  background:var(--carta-2);border-radius:var(--r-md);padding:12px 13px;
+  display:flex;align-items:center;gap:11px;min-width:0;
+}
+.ficha .sello{
+  width:32px;height:32px;border-radius:10px;flex:none;
+  display:grid;place-items:center;background:var(--c,var(--verde));
+}
+.ficha .sello svg{width:17px;height:17px;fill:none;stroke:#08120C;
+  stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.ficha b{
+  display:block;font-family:'MartianMono',monospace;font-size:19px;
+  font-weight:600;line-height:1.05;letter-spacing:-.03em;color:var(--texto);
+}
+.ficha span{display:block;font-size:10.5px;color:var(--texto-2);margin-top:1px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* ---- anillo de avance ---- */
+.avance{display:flex;align-items:center;gap:16px}
+.anillo{position:relative;width:74px;height:74px;flex:none}
+.anillo svg{width:100%;height:100%;transform:rotate(-90deg)}
+.anillo .pista{stroke:var(--carta-2)}
+.anillo .arco{stroke:var(--verde);stroke-linecap:round;
+  transition:stroke-dashoffset .7s cubic-bezier(.2,.85,.3,1)}
+.anillo b{
+  position:absolute;inset:0;display:grid;place-items:center;
+  font-family:'MartianMono',monospace;font-size:16px;font-weight:600;
+  letter-spacing:-.04em;color:var(--texto);
+}
+.avance-tx b{display:block;font-size:15px;
+  font-variation-settings:'wdth' 104,'wght' 700}
+.avance-tx span{display:block;font-size:12px;color:var(--texto-2);margin-top:3px}
+
+/* ===================================================================
+   INSTRUMENTO
+   =================================================================== */
+.instrumento{padding:4px 0 6px}
 #pickBtn{
-  width:100%;background:rgba(255,255,255,.07);
-  border:1px solid rgba(255,255,255,.13);
-  border-radius:var(--r-md);padding:12px 14px;
+  width:100%;background:var(--carta);border:1px solid var(--borde);
+  border-radius:var(--r-lg);padding:13px 15px;margin:0 0 4px;
   display:flex;align-items:center;gap:13px;text-align:left;
-  color:#fff;position:relative;min-height:var(--tap);
-  transition:background .18s;
+  color:var(--texto);min-height:var(--tap);transition:border-color .18s;
 }
-#pickBtn:active{background:rgba(255,255,255,.12)}
+.zona-ir{padding:0 15px}
+#pickBtn:active{border-color:var(--borde-2)}
 #pickBtn .cinta{height:34px}
-#tgtName{
-  display:block;font-variation-settings:'wdth' 106,'wght' 700;
-  font-size:16.5px;letter-spacing:-.01em;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-}
-#tgtSub{
-  display:block;font-size:11.5px;color:rgba(255,255,255,.55);
-  margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-}
-#pickBtn .chevron{margin-left:auto;opacity:.4;flex:none}
+#tgtName{display:block;font-variation-settings:'wdth' 104,'wght' 700;
+  font-size:16.5px;letter-spacing:-.012em;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#tgtSub{display:block;font-size:11.5px;color:var(--texto-2);margin-top:2px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#pickBtn .chevron{margin-left:auto;color:var(--texto-3);flex:none}
 
-.dialwrap{
-  position:relative;width:min(74vw,290px);aspect-ratio:1;
-  margin:20px auto 4px;
-}
+.dialwrap{position:relative;width:min(72vw,282px);aspect-ratio:1;margin:18px auto 2px}
 .dialwrap svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
-/* fiel del instrumento: la marca fija contra la que se lee el rumbo */
 .dialwrap .index{
-  position:absolute;left:50%;top:-9px;transform:translateX(-50%);
-  width:0;height:0;border-left:7px solid transparent;
-  border-right:7px solid transparent;border-top:11px solid var(--bolsa);
-  filter:drop-shadow(0 1px 3px rgba(0,0,0,.5));
+  position:absolute;left:50%;top:-8px;transform:translateX(-50%);
+  width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;
+  border-top:11px solid var(--verde);filter:drop-shadow(0 1px 4px rgba(61,220,132,.5));
 }
 #ring,#needle{transition:transform .16s linear;transform-origin:50% 50%}
-.readout{
-  position:absolute;inset:0;display:flex;flex-direction:column;
-  align-items:center;justify-content:center;pointer-events:none;
-}
+.readout{position:absolute;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;pointer-events:none}
 .dist{
   font-family:'MartianMono',monospace;font-weight:600;
-  font-size:clamp(34px,11.5vw,46px);line-height:.94;color:#fff;
-  letter-spacing:-.045em;
+  font-size:clamp(34px,11.5vw,46px);line-height:.94;color:var(--texto);
+  letter-spacing:-.05em;
 }
-.dist small{
-  font-size:.33em;font-weight:400;opacity:.55;margin-left:3px;
-  letter-spacing:.06em;
-}
-.brg{
-  font-family:'MartianMono',monospace;font-size:10.5px;
-  color:rgba(255,255,255,.55);margin-top:9px;letter-spacing:.02em;
-}
+.dist small{font-size:.33em;font-weight:400;color:var(--texto-2);
+  margin-left:4px;letter-spacing:.06em}
+.brg{font-family:'MartianMono',monospace;font-size:10.5px;
+  color:var(--texto-2);margin-top:9px}
 
-.strip{display:flex;gap:9px;margin:16px 0 0}
-.strip>div{
-  flex:1;background:rgba(255,255,255,.06);border-radius:var(--r-sm);
-  padding:9px 11px;min-width:0;
-}
-.strip .lbl{display:block;color:rgba(255,255,255,.42);margin-bottom:3px}
-.strip b{
-  display:block;font-family:'MartianMono',monospace;font-size:12px;
-  font-weight:500;color:#fff;white-space:nowrap;overflow:hidden;
-  text-overflow:ellipsis;
-}
-/* fuera del instrumento la banda va sobre papel */
-.view:not(#ir) .strip>div,.sheet .strip>div{background:var(--latex-2)}
-.view:not(#ir) .strip .lbl,.sheet .strip .lbl{color:var(--texto-3)}
-.view:not(#ir) .strip b,.sheet .strip b{color:var(--texto)}
+.strip{display:flex;gap:9px;margin:14px 0 0}
+.strip>div{flex:1;background:var(--carta);border:1px solid var(--borde);
+  border-radius:var(--r-md);padding:10px 12px;min-width:0}
+.strip .lbl{display:block;margin-bottom:3px}
+.strip b{display:block;font-family:'MartianMono',monospace;font-size:12px;
+  font-weight:500;color:var(--texto);white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis}
 
-.gps{
-  display:flex;align-items:center;gap:8px;margin-top:14px;
-  font-size:11.5px;color:rgba(255,255,255,.6);
-}
-.dot{
-  width:8px;height:8px;border-radius:50%;background:var(--cinta-amar);
-  flex:none;box-shadow:0 0 0 3px rgba(224,161,28,.18);
-}
-.dot.ok{background:var(--cinta-verde);box-shadow:0 0 0 3px rgba(60,143,92,.18)}
-.dot.bad{background:var(--cinta-rojo);box-shadow:0 0 0 3px rgba(198,58,47,.18)}
+.gps{display:flex;align-items:center;gap:9px;margin:13px 0 0;
+  font-size:11.5px;color:var(--texto-2)}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--cinta-amar);flex:none;
+  box-shadow:0 0 0 3px rgba(240,180,41,.16)}
+.dot.ok{background:var(--verde);box-shadow:0 0 0 3px rgba(61,220,132,.16)}
+.dot.bad{background:var(--cinta-rojo);box-shadow:0 0 0 3px rgba(244,97,76,.16)}
 
 /* ===================================================================
-   CINTA — el elemento firma
-   Lengüeta con la cola cortada en pico, como la que cuelga del racimo.
+   CINTA — firma
    =================================================================== */
 .cinta{
   width:11px;flex:none;border-radius:2px 2px 0 0;
   clip-path:polygon(0 0,100% 0,100% 100%,50% 76%,0 100%);
-  background:var(--c,var(--latex));
+  background:var(--c,var(--borde-2));
 }
 
 /* ===================================================================
-   CONTENIDO SOBRE PAPEL
+   BOTONES
    =================================================================== */
-.zona{padding:0 15px}
-.hint{
-  font-size:12.5px;color:var(--texto-2);line-height:1.5;
-  margin:15px 15px 0;
-}
-
 .btn{
   min-height:var(--tap);border:0;border-radius:var(--r-md);
-  background:var(--bolsa);color:#fff;
-  font-family:inherit;font-size:14.5px;
-  font-variation-settings:'wdth' 104,'wght' 650;
-  padding:12px 16px;flex:1;
-  display:inline-flex;align-items:center;justify-content:center;gap:7px;
-  transition:transform .1s,filter .15s;
+  background:var(--verde-hondo);color:#fff;font-family:inherit;font-size:14.5px;
+  font-variation-settings:'wdth' 102,'wght' 650;padding:12px 16px;flex:1;
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  transition:transform .1s,filter .16s;
 }
-.btn:active{transform:scale(.985);filter:brightness(.93)}
+body:not(.campo) .btn{background:var(--verde);color:#062012}
+.btn:active{transform:scale(.985);filter:brightness(1.08)}
 .btn.wide{width:100%;flex:none}
-.btn.grey{background:var(--latex-2);color:var(--texto)}
-.btn.ghost{background:transparent;color:var(--bolsa);box-shadow:inset 0 0 0 1.6px var(--bolsa)}
-.btn.danger{background:var(--peligro);color:#fff}
-.btn:disabled{opacity:.4}
+.btn.grey{background:var(--carta-2);color:var(--texto)}
+.btn.ghost{background:transparent;color:var(--verde);
+  box-shadow:inset 0 0 0 1.5px var(--borde-2)}
+.btn.danger{background:var(--peligro);color:#1A0A08}
+.btn:disabled{opacity:.38}
 .row{display:flex;gap:9px;margin:0 15px}
-.sheet .row,.view:not(#ir) .row{margin-left:0;margin-right:0}
+.sheet .row{margin-left:0;margin-right:0}
 #ir .row{margin:11px 15px 0}
+.hint{font-size:12.5px;color:var(--texto-2);line-height:1.5;margin:15px 15px 0}
 
-/* ---- lista de puntos ---- */
-.search{padding:13px 15px 7px}
+/* ===================================================================
+   LISTAS
+   =================================================================== */
+.search{padding:12px 15px 7px}
 .search input{
-  width:100%;background:#fff;border:1.5px solid var(--latex);
-  border-radius:var(--r-md);padding:12px 14px;font-family:inherit;
+  width:100%;background:var(--carta);border:1px solid var(--borde);
+  border-radius:var(--r-md);padding:12px 14px 12px 40px;font-family:inherit;
   font-size:15px;color:var(--texto);min-height:var(--tap);
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236E8177' stroke-width='2.1' stroke-linecap='round'><circle cx='11' cy='11' r='7'/><path d='M20 20l-3.5-3.5'/></svg>");
+  background-repeat:no-repeat;background-position:14px center;background-size:17px;
 }
-.search input:focus{outline:none;border-color:var(--bolsa)}
+.search input::placeholder{color:var(--texto-3)}
 .selfinca{padding:0 15px 6px}
 select{
-  width:100%;background:#fff;border:1.5px solid var(--latex);
-  border-radius:var(--r-md);padding:11px 13px;font-family:inherit;
-  font-size:14.5px;color:var(--texto);min-height:var(--tap);
-  appearance:none;
-  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%235C6B62' stroke-width='2.2' stroke-linecap='round'><path d='M6 9l6 6 6-6'/></svg>");
-  background-repeat:no-repeat;background-position:right 12px center;background-size:17px;
+  width:100%;background:var(--carta);border:1px solid var(--borde);
+  border-radius:var(--r-md);padding:11px 13px;font-family:inherit;font-size:14.5px;
+  color:var(--texto);min-height:var(--tap);appearance:none;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236E8177' stroke-width='2.2' stroke-linecap='round'><path d='M6 9l6 6 6-6'/></svg>");
+  background-repeat:no-repeat;background-position:right 13px center;background-size:17px;
 }
 .chips{display:flex;gap:7px;flex-wrap:wrap;padding:4px 15px 10px}
 .chip{
-  border:1.5px solid var(--latex);background:#fff;border-radius:99px;
-  padding:8px 13px;font-family:inherit;font-size:12.5px;
-  font-variation-settings:'wdth' 100,'wght' 600;
-  color:var(--texto-2);white-space:nowrap;
+  border:1px solid var(--borde);background:var(--carta);border-radius:99px;
+  padding:9px 14px;font-family:inherit;font-size:12.5px;
+  font-variation-settings:'wdth' 100,'wght' 650;color:var(--texto-2);
+  white-space:nowrap;transition:.16s;
 }
-.chip.on{background:var(--tinta);border-color:var(--tinta);color:#fff}
+.chip.on{background:var(--verde);border-color:var(--verde);color:#062012}
+body.campo .chip.on{color:#fff}
 
 .grp{
-  font-variation-settings:'wdth' 118,'wght' 700;
-  font-size:10px;text-transform:uppercase;letter-spacing:.13em;
-  color:var(--texto-3);padding:16px 15px 7px;
+  font-variation-settings:'wdth' 116,'wght' 700;font-size:10px;
+  text-transform:uppercase;letter-spacing:.13em;color:var(--texto-3);
+  padding:17px 15px 8px;
 }
 .mini-todo{
-  float:right;background:transparent;border:0;color:var(--bolsa);
-  font-family:inherit;font-size:11px;
-  font-variation-settings:'wdth' 100,'wght' 700;
+  float:right;background:transparent;border:0;color:var(--verde);
+  font-family:inherit;font-size:11px;font-variation-settings:'wdth' 100,'wght' 700;
   text-transform:none;letter-spacing:0;padding:0;
 }
 #lista{padding:0 15px}
-.item{
-  display:flex;align-items:center;gap:12px;background:#fff;
-  border-radius:var(--r-md);padding:12px 14px 12px 0;margin-bottom:8px;
-  box-shadow:var(--sombra);overflow:hidden;min-height:var(--tap);
-  transition:transform .1s;
+.item,.pickrow{
+  display:flex;align-items:center;gap:12px;width:100%;
+  background:var(--carta);border:1px solid var(--borde);
+  border-radius:var(--r-md);padding:11px 14px 11px 11px;margin-bottom:9px;
+  min-height:var(--tap);text-align:left;font-family:inherit;
+  transition:transform .1s,border-color .16s;
 }
-.item:active{transform:scale(.99)}
-.item .ic{
-  width:11px;align-self:stretch;flex:none;margin:-12px 0 -12px 0;
-  clip-path:polygon(0 0,100% 0,100% 100%,50% 76%,0 100%);
-  font-size:0;
+.item:active,.pickrow:active{transform:scale(.99)}
+.item .ic,.pickrow .cinta{
+  width:38px;height:38px;flex:none;border-radius:11px;
+  clip-path:none;display:grid;place-items:center;
+  font-family:'MartianMono',monospace;font-size:10px;font-weight:700;color:#08120C;
 }
-.item .tx{flex:1;min-width:0;padding-left:2px}
-.item .tx b{
-  display:block;font-size:14.5px;
-  font-variation-settings:'wdth' 102,'wght' 650;letter-spacing:-.008em;
+.item .tx,.pickrow>span:nth-child(2){flex:1;min-width:0}
+.item .tx b,.pickrow b{
+  display:block;font-size:14.5px;font-variation-settings:'wdth' 102,'wght' 650;
+  letter-spacing:-.008em;color:var(--texto);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
-.item .tx span{
+.item .tx span,.pickrow>span:nth-child(2) span{
   display:block;font-size:11.5px;color:var(--texto-2);margin-top:2px;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
-.item .d{
-  font-family:'MartianMono',monospace;font-size:11.5px;font-weight:500;
-  color:var(--texto-2);white-space:nowrap;flex:none;
+.item .d,.pickrow>span:last-child{
+  font-family:'MartianMono',monospace;font-size:11px;color:var(--texto-2);
+  white-space:nowrap;flex:none;
 }
-.empty{text-align:center;padding:50px 26px;color:var(--texto-2)}
-.empty h2{font-size:17px;margin-bottom:7px;color:var(--texto)}
+.item.es-destino{border-color:var(--bolsa)}
+.item.es-enruta{border-color:var(--cinta-amar)}
+.item.es-hecho .tx b{color:var(--texto-2)}
+.empty{text-align:center;padding:56px 26px;color:var(--texto-2)}
+.empty h2{font-size:17.5px;margin-bottom:8px;color:var(--texto)}
 .empty p{font-size:13.5px;line-height:1.55;margin:0}
 
+/* ---- sello de estado, redondo, a la derecha ---- */
+.pip{
+  width:22px;height:22px;border-radius:50%;flex:none;display:grid;
+  place-items:center;font-family:'MartianMono',monospace;font-size:11px;
+  font-weight:700;color:#08120C;
+}
+.pip::after{content:attr(data-m)}
+.pip.destino  {background:var(--bolsa);color:#fff}
+.pip.enruta   {background:var(--cinta-amar)}
+.pip.novedad  {background:var(--cinta-rojo)}
+.pip.vence    {background:var(--cinta-rojo)}
+.pip.hecho    {background:var(--verde)}
+.pip.pendiente{background:transparent;box-shadow:inset 0 0 0 1.8px var(--borde-2)}
+
+.marbete{
+  display:inline-flex;align-items:center;gap:5px;font-size:9.5px;
+  font-variation-settings:'wdth' 110,'wght' 800;letter-spacing:.06em;
+  text-transform:uppercase;padding:4px 9px;border-radius:99px;white-space:nowrap;
+}
+
 /* ===================================================================
-   PANELES DE LA JORNADA Y LA RUTA
+   PANELES DE JORNADA Y RUTA
    =================================================================== */
 .jornada,.ruta{
-  margin:12px 15px 0;border-radius:var(--r-md);
-  padding:13px 15px;color:#fff;box-shadow:var(--sombra);
+  margin:12px 15px 0;border-radius:var(--r-lg);padding:14px 16px;
+  border:1px solid var(--borde);
 }
-.jornada{background:var(--hoja)}
-.ruta{background:var(--bolsa)}
-.ruta.apagado{background:var(--texto-2)}
-
+.jornada{background:var(--carta);border-left:3px solid var(--cinta-amar)}
+.ruta{background:var(--carta);border-left:3px solid var(--bolsa)}
+.ruta.apagado{border-left-color:var(--texto-3)}
 .jn-cab{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
-.jn-cab b{
-  font-size:15.5px;font-variation-settings:'wdth' 104,'wght' 700;
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-}
-.jn-cab span{
-  font-family:'MartianMono',monospace;font-size:10px;
-  color:rgba(255,255,255,.66);white-space:nowrap;
-}
-.jn-bar{
-  height:4px;border-radius:99px;background:rgba(255,255,255,.2);
-  margin:10px 0 11px;overflow:hidden;
-}
-.jn-bar i{display:block;height:100%;background:var(--cinta-amar);width:0;
-  transition:width .4s cubic-bezier(.2,.8,.3,1)}
+.jn-cab b{font-size:15.5px;font-variation-settings:'wdth' 104,'wght' 700;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--texto)}
+.jn-cab span{font-family:'MartianMono',monospace;font-size:10px;
+  color:var(--texto-2);white-space:nowrap}
+.jn-bar{height:4px;border-radius:99px;background:var(--carta-2);
+  margin:11px 0 12px;overflow:hidden}
+.jn-bar i{display:block;height:100%;background:var(--verde);width:0;
+  transition:width .5s cubic-bezier(.2,.85,.3,1)}
 .jn-bot{display:flex;gap:7px}
-.jn-bot button{
-  flex:1;border:0;border-radius:var(--r-sm);padding:10px 6px;
+.jn-bot button{flex:1;border:0;border-radius:var(--r-sm);padding:11px 6px;
   font-family:inherit;font-size:12px;
-  font-variation-settings:'wdth' 104,'wght' 700;min-height:40px;
-}
-#planVisita{background:var(--cinta-amar);color:#241a02}
-#planHecha,#planVer{background:rgba(255,255,255,.15);color:#fff}
-
+  font-variation-settings:'wdth' 104,'wght' 700;min-height:40px}
+#planVisita{background:var(--verde);color:#062012}
+#planHecha,#planVer{background:var(--carta-2);color:var(--texto)}
 .ruta-top{display:flex;align-items:center;gap:13px}
-.ruta-giro{font-size:29px;line-height:1;min-width:32px;text-align:center;flex:none}
+.ruta-giro{font-size:29px;line-height:1;min-width:32px;text-align:center;
+  flex:none;color:var(--verde)}
 .ruta-top b{display:block;font-size:15.5px;
-  font-variation-settings:'wdth' 104,'wght' 700}
-.ruta-top span#rutaEn{font-family:'MartianMono',monospace;font-size:11px;opacity:.8}
-.ruta-pie{
-  display:flex;justify-content:space-between;margin-top:9px;padding-top:9px;
-  border-top:1px solid rgba(255,255,255,.22);
-  font-family:'MartianMono',monospace;font-size:10px;opacity:.82;
-}
+  font-variation-settings:'wdth' 104,'wght' 700;color:var(--texto)}
+.ruta-top span#rutaEn{font-family:'MartianMono',monospace;font-size:11px;
+  color:var(--texto-2)}
+.ruta-pie{display:flex;justify-content:space-between;margin-top:10px;
+  padding-top:10px;border-top:1px solid var(--borde);
+  font-family:'MartianMono',monospace;font-size:10px;color:var(--texto-2)}
 
 /* ===================================================================
    HOJAS
    =================================================================== */
 .sheet{position:fixed;inset:0;z-index:70;display:none}
 .sheet.on{display:block}
-.scrim{position:absolute;inset:0;background:rgba(10,20,15,.5);
-  backdrop-filter:blur(3px);animation:fade .22s}
+.scrim{position:absolute;inset:0;background:rgba(3,8,6,.72);animation:fade .22s}
 @keyframes fade{from{opacity:0}}
 .sheet .card{
   position:absolute;left:0;right:0;bottom:0;max-height:92dvh;overflow-y:auto;
-  background:var(--papel);border-radius:var(--r-xl) var(--r-xl) 0 0;
-  padding:9px 18px calc(env(safe-area-inset-bottom,0px) + 22px);
+  background:var(--fondo);border-top:1px solid var(--borde-2);
+  border-radius:var(--r-xl) var(--r-xl) 0 0;
+  padding:9px 18px calc(env(safe-area-inset-bottom,0px) + 24px);
   box-shadow:var(--sombra-alta);
-  animation:sube .3s cubic-bezier(.2,.85,.3,1);
+  animation:sube .32s cubic-bezier(.2,.85,.3,1);
 }
 @keyframes sube{from{transform:translateY(100%)}}
-.sheet .card::before{
-  content:'';display:block;width:38px;height:4px;border-radius:99px;
-  background:var(--latex);margin:0 auto 15px;
-}
-.sheet h3{margin-bottom:13px}
-.sep{border:0;border-top:1px solid var(--latex);margin:19px 0 15px}
+.sheet .card::before{content:'';display:block;width:38px;height:4px;
+  border-radius:99px;background:var(--borde-2);margin:0 auto 16px}
+.sheet h3{margin-bottom:14px}
+.sep{border:0;border-top:1px solid var(--borde);margin:19px 0 15px}
 .mini{font-size:12px;color:var(--texto-2);line-height:1.5;margin:6px 0 0}
-.note{
-  font-size:11.5px;color:var(--texto-2);background:var(--latex-2);
-  border-radius:var(--r-sm);padding:9px 11px;line-height:1.45;
-}
-
+.note{font-size:11.5px;color:var(--texto-2);background:var(--carta);
+  border:1px solid var(--borde);border-radius:var(--r-sm);padding:9px 11px;line-height:1.45}
 .f{margin-bottom:13px}
 .f .lbl,.f label.lbl{display:block;margin-bottom:6px}
 .f2{display:grid;grid-template-columns:1fr 1fr;gap:11px}
 input[type=text],input[type=search],input[type=date],textarea{
-  width:100%;background:#fff;border:1.5px solid var(--latex);
-  border-radius:var(--r-md);padding:12px 13px;font-family:inherit;
-  font-size:15px;color:var(--texto);min-height:var(--tap);
-}
-textarea{min-height:78px;resize:vertical;line-height:1.45}
-input:focus,textarea:focus,select:focus{outline:none;border-color:var(--bolsa)}
-.chk{display:flex;align-items:center;gap:10px;font-size:13.5px;min-height:var(--tap)}
-.chk input{width:21px;height:21px;min-height:0;accent-color:var(--bolsa)}
-
-/* ---- estados de visita, con cinta ---- */
-.estsel{display:flex;gap:7px;flex-wrap:wrap;margin:7px 0 4px}
-.estsel button{
-  flex:1;min-width:calc(50% - 4px);border:1.5px solid var(--latex);
-  background:#fff;border-radius:var(--r-md);padding:12px 9px;
-  font-family:inherit;font-size:13px;
-  font-variation-settings:'wdth' 100,'wght' 650;
+  width:100%;background:var(--carta);border:1px solid var(--borde);
+  border-radius:var(--r-md);padding:12px 13px;font-family:inherit;font-size:15px;
   color:var(--texto);min-height:var(--tap);
 }
-.estsel button.on{color:#fff;border-color:transparent}
-.est{
-  display:inline-flex;align-items:center;gap:5px;font-size:10.5px;
-  font-variation-settings:'wdth' 108,'wght' 750;
-  padding:4px 10px;border-radius:99px;letter-spacing:.03em;
+textarea{min-height:80px;resize:vertical;line-height:1.45}
+input::placeholder,textarea::placeholder{color:var(--texto-3)}
+input:focus,textarea:focus,select:focus{outline:none;border-color:var(--verde)}
+.chk{display:flex;align-items:center;gap:10px;font-size:13.5px;min-height:var(--tap)}
+.chk input{width:21px;height:21px;min-height:0;accent-color:var(--verde)}
+
+.estsel{display:flex;gap:7px;flex-wrap:wrap;margin:7px 0 4px}
+.estsel button{
+  flex:1;min-width:calc(50% - 4px);border:1px solid var(--borde);
+  background:var(--carta);border-radius:var(--r-md);padding:12px 9px;
+  font-family:inherit;font-size:13px;
+  font-variation-settings:'wdth' 100,'wght' 650;color:var(--texto);min-height:var(--tap);
 }
-.visita{
-  border-left:3px solid var(--latex);padding:10px 0 10px 12px;margin:11px 0;
-}
+.estsel button.on{color:#08120C;border-color:transparent}
+.est{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;
+  font-variation-settings:'wdth' 108,'wght' 750;padding:4px 10px;
+  border-radius:99px;letter-spacing:.03em}
+.visita{border-left:2.5px solid var(--borde-2);padding:10px 0 10px 13px;margin:11px 0}
 .visita .cab{display:flex;justify-content:space-between;align-items:center;gap:8px}
 .visita .cu{font-family:'MartianMono',monospace;font-size:10px;color:var(--texto-3)}
 .visita p{margin:7px 0 0;font-size:13.5px;white-space:pre-wrap;line-height:1.5}
 .visita .xdel{font-size:10.5px;font-variation-settings:'wght' 700;padding:3px 0}
-.fotos{display:flex;gap:7px;flex-wrap:wrap;margin-top:9px}
-.fotos img{
-  width:76px;height:76px;object-fit:cover;border-radius:var(--r-sm);
-  border:1px solid var(--latex);
-}
-.marca{
-  position:absolute;top:0;right:0;background:var(--bolsa);color:#fff;
-  font-family:'MartianMono',monospace;font-size:9px;font-weight:600;
-  padding:2px 5px;border-radius:0 var(--r-sm) 0 var(--r-sm);
-}
-.visor{
-  position:fixed;inset:0;z-index:95;background:rgba(8,14,10,.96);
-  display:flex;align-items:center;justify-content:center;padding:14px;
-  animation:fade .2s;
-}
+.fotos{display:flex;gap:8px;flex-wrap:wrap;margin-top:9px}
+.fotos img{width:78px;height:78px;object-fit:cover;border-radius:var(--r-sm);
+  border:1px solid var(--borde)}
+.marca{position:absolute;top:0;right:0;background:var(--verde);color:#062012;
+  font-family:'MartianMono',monospace;font-size:9px;font-weight:700;
+  padding:2px 6px;border-radius:0 var(--r-sm) 0 var(--r-sm)}
+.visor{position:fixed;inset:0;z-index:95;background:rgba(3,8,6,.97);
+  display:flex;align-items:center;justify-content:center;padding:14px;animation:fade .2s}
 .visor img{max-width:100%;max-height:88vh;border-radius:var(--r-md)}
-
 .tags{display:flex;gap:7px;flex-wrap:wrap;margin:7px 0 2px}
-.tags button{
-  border:1.5px solid var(--latex);background:#fff;border-radius:99px;
+.tags button{border:1px solid var(--borde);background:var(--carta);border-radius:99px;
   padding:9px 14px;font-family:inherit;font-size:12.5px;
-  font-variation-settings:'wdth' 100,'wght' 650;
-  color:var(--texto);min-height:40px;
-}
-.tags button.on{color:#fff;border-color:transparent}
-.nrm{
-  display:inline-block;font-size:10px;font-variation-settings:'wght' 750;
-  color:#fff;padding:3px 8px;border-radius:99px;margin:0 4px 4px 0;
-}
-.vence{
-  display:inline-flex;align-items:center;gap:5px;font-size:11px;
-  font-variation-settings:'wght' 750;padding:4px 10px;border-radius:99px;
-  margin-top:6px;
-}
+  font-variation-settings:'wdth' 100,'wght' 650;color:var(--texto);min-height:40px}
+.tags button.on{color:#08120C;border-color:transparent}
+.nrm{display:inline-block;font-size:10px;font-variation-settings:'wght' 750;
+  color:#08120C;padding:3px 9px;border-radius:99px;margin:0 4px 4px 0}
+.vence{display:inline-flex;align-items:center;gap:5px;font-size:11px;
+  font-variation-settings:'wght' 750;padding:4px 10px;border-radius:99px;margin-top:6px}
 
-/* ---- promediado ---- */
 .prom{text-align:center;padding:9px 0 3px}
-.prom .big{
-  font-family:'MartianMono',monospace;font-weight:600;font-size:44px;
-  line-height:1;color:var(--bolsa);letter-spacing:-.04em;
-}
-.prom .lbl2{font-size:11px;color:var(--texto-3);margin-top:5px}
-.barra{height:6px;border-radius:99px;background:var(--latex);
-  overflow:hidden;margin:16px 0 4px}
-.barra i{display:block;height:100%;background:var(--bolsa);width:0;
-  transition:width .4s linear}
+.prom .big{font-family:'MartianMono',monospace;font-weight:600;font-size:46px;
+  line-height:1;color:var(--verde);letter-spacing:-.045em}
+.prom .lbl2{font-size:11px;color:var(--texto-3);margin-top:6px}
+.barra{height:6px;border-radius:99px;background:var(--carta-2);overflow:hidden;margin:16px 0 4px}
+.barra i{display:block;height:100%;background:var(--verde);width:0;transition:width .4s linear}
 .calidad{display:flex;gap:8px;margin-top:14px}
-.calidad div{
-  flex:1;text-align:center;background:var(--latex-2);
-  border-radius:var(--r-sm);padding:10px 4px;
-}
-.calidad b{
-  display:block;font-family:'MartianMono',monospace;font-size:15px;
-  font-weight:600;color:var(--texto);
-}
+.calidad div{flex:1;text-align:center;background:var(--carta);
+  border:1px solid var(--borde);border-radius:var(--r-md);padding:11px 4px}
+.calidad b{display:block;font-family:'MartianMono',monospace;font-size:15px;
+  font-weight:600;color:var(--texto)}
 .calidad span{font-size:9.5px;color:var(--texto-3);letter-spacing:.06em;
   text-transform:uppercase;font-variation-settings:'wght' 700}
 
-/* ---- paradas y trazos ---- */
-.par{display:flex;align-items:center;gap:11px;padding:11px 0;
-  border-bottom:1px solid var(--latex)}
-.par .num{
-  width:25px;height:25px;border-radius:50%;background:var(--bolsa);color:#fff;
-  font-family:'MartianMono',monospace;font-size:11px;font-weight:600;
-  line-height:25px;text-align:center;flex:none;
-}
-.par.ok .num{background:var(--cinta-verde)}
-.par.ok b{text-decoration:line-through;opacity:.45}
+.par{display:flex;align-items:center;gap:11px;padding:11px 0;border-bottom:1px solid var(--borde)}
+.par .num{width:26px;height:26px;border-radius:50%;background:var(--verde);color:#062012;
+  font-family:'MartianMono',monospace;font-size:11px;font-weight:700;
+  line-height:26px;text-align:center;flex:none}
+.par.ok .num{background:var(--carta-2);color:var(--texto-2)}
+.par.ok b{text-decoration:line-through;color:var(--texto-3)}
 .par .tx{flex:1;min-width:0}
-.par b{display:block;font-size:13.5px;
-  font-variation-settings:'wdth' 102,'wght' 650;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.par b{display:block;font-size:13.5px;font-variation-settings:'wdth' 102,'wght' 650;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--texto)}
 .par span{font-size:11px;color:var(--texto-2)}
 .par .km{font-size:10.5px;color:var(--texto-3);white-space:nowrap}
-.selpar{display:flex;align-items:center;gap:11px;padding:10px 0;
-  border-bottom:1px solid var(--latex);min-height:var(--tap)}
-.selpar .mk{
-  width:22px;height:22px;border-radius:7px;border:1.8px solid var(--latex);
-  flex:none;position:relative;transition:.15s;
-}
-.selpar.on .mk{background:var(--bolsa);border-color:var(--bolsa)}
-.selpar.on .mk::after{
-  content:'';position:absolute;left:7px;top:3px;width:5px;height:10px;
-  border:solid #fff;border-width:0 2.2px 2.2px 0;transform:rotate(43deg);
-}
-.trz{display:flex;align-items:center;gap:11px;padding:10px 0;
-  border-bottom:1px solid var(--latex)}
-.trz b{display:block;font-size:13.5px;
-  font-variation-settings:'wdth' 102,'wght' 650;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.selpar{display:flex;align-items:center;gap:11px;padding:11px 0;
+  border-bottom:1px solid var(--borde);min-height:var(--tap)}
+.selpar .mk{width:22px;height:22px;border-radius:7px;border:1.6px solid var(--borde-2);
+  flex:none;position:relative;transition:.15s}
+.selpar.on .mk{background:var(--verde);border-color:var(--verde)}
+.selpar.on .mk::after{content:'';position:absolute;left:7px;top:3px;width:5px;height:10px;
+  border:solid #062012;border-width:0 2.2px 2.2px 0;transform:rotate(43deg)}
+.trz{display:flex;align-items:center;gap:11px;padding:11px 0;border-bottom:1px solid var(--borde)}
+.trz b{display:block;font-size:13.5px;font-variation-settings:'wdth' 102,'wght' 650;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--texto)}
 .trz span:not(:first-child){font-size:11px;color:var(--texto-2)}
-.xdel{background:transparent;border:0;color:var(--peligro);
-  font-family:inherit;font-size:15px;padding:5px 7px;flex:none}
+.xdel{background:transparent;border:0;color:var(--peligro);font-family:inherit;
+  font-size:15px;padding:5px 7px;flex:none}
 
 /* ===================================================================
    MAPA
    =================================================================== */
-#mapa{padding:0}
-#map{position:absolute;inset:0}
-.mapbtns{
-  position:absolute;right:11px;top:11px;z-index:1000;
-  display:flex;flex-direction:column;gap:7px;
-}
+#map{position:absolute;inset:0;background:var(--fondo)}
+.mapbtns{position:absolute;right:12px;top:12px;z-index:1000;
+  display:flex;flex-direction:column;gap:8px;align-items:flex-end}
+.mapgrupo{display:none;flex-direction:column;gap:8px}
+.mapbtns.abierto .mapgrupo{display:flex;animation:despliega .24s cubic-bezier(.2,.85,.3,1)}
+@keyframes despliega{from{opacity:0;transform:translateY(-9px)}}
 .mapbtns button{
-  width:44px;height:44px;border-radius:var(--r-md);border:0;
-  background:rgba(255,255,255,.96);box-shadow:var(--sombra);
-  display:flex;align-items:center;justify-content:center;
-  color:var(--texto);
+  width:44px;height:44px;border-radius:14px;border:1px solid var(--borde);
+  background:var(--carta);box-shadow:var(--sombra);
+  display:flex;align-items:center;justify-content:center;color:var(--texto);
 }
 .mapbtns button svg{width:20px;height:20px;fill:none;stroke:currentColor;
   stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
-.mapbtns button.act{background:var(--tinta);color:#fff}
-.medbar{
-  position:absolute;left:10px;right:10px;bottom:10px;z-index:1000;
-  background:var(--papel);border-radius:var(--r-lg);padding:13px 14px;
-  box-shadow:var(--sombra-alta);
-}
-.med-lec{display:flex;gap:8px;margin-bottom:11px}
+.mapbtns button.act{background:var(--verde);color:#062012;border-color:var(--verde)}
+.mapbtns .jefe{background:var(--verde);color:#062012;border-color:var(--verde)}
+.mapbtns.abierto .jefe{background:var(--carta);color:var(--texto);border-color:var(--borde)}
+.medbar{position:absolute;left:11px;right:11px;bottom:11px;z-index:1000;
+  background:var(--carta);border:1px solid var(--borde-2);
+  border-radius:var(--r-lg);padding:14px 15px;box-shadow:var(--sombra-alta)}
+.med-lec{display:flex;gap:8px;margin-bottom:12px}
 .med-lec div{flex:1;text-align:center}
-.med-lec b{
-  display:block;font-family:'MartianMono',monospace;font-size:17px;
-  font-weight:600;color:var(--bolsa);
-}
+.med-lec b{display:block;font-family:'MartianMono',monospace;font-size:17px;
+  font-weight:600;color:var(--verde)}
 .med-lec span{font-size:9px;color:var(--texto-3);letter-spacing:.07em;
   text-transform:uppercase;font-variation-settings:'wght' 700}
 .med-bot{display:flex;gap:7px}
 .med-bot .btn{flex:1;padding:11px 4px;font-size:13px;min-height:42px}
-.med-bot .btn.rec{background:var(--cinta-rojo);color:#fff}
-.med-ayuda{font-size:11px;color:var(--texto-2);margin:9px 0 0;text-align:center}
-.finca-label{
-  font-family:'Archivo',sans-serif;
-  font-variation-settings:'wdth' 112,'wght' 700;
-  font-size:10px;text-transform:uppercase;letter-spacing:.06em;
-  color:var(--hoja);text-shadow:0 0 3px #fff,0 0 3px #fff,0 0 3px #fff;
-  white-space:nowrap;pointer-events:none;
+.med-bot .btn.rec{background:var(--cinta-rojo);color:#1A0A08}
+.med-ayuda{font-size:11px;color:var(--texto-2);margin:10px 0 0;text-align:center}
+
+.pin{position:relative;transform:translate(-50%,-100%);
+  display:flex;flex-direction:column;align-items:center}
+.pin .tag{
+  width:26px;height:28px;background:var(--c,var(--texto-2));color:#08120C;
+  font-family:'MartianMono',monospace;font-size:9px;font-weight:700;
+  display:grid;place-items:center;padding-bottom:4px;
+  clip-path:polygon(0 0,100% 0,100% 100%,50% 78%,0 100%);
+  border-radius:8px 8px 0 0;filter:drop-shadow(0 2px 5px rgba(0,0,0,.55));
 }
+.pin .aro{position:absolute;left:50%;top:14px;transform:translate(-50%,-50%);
+  width:40px;height:40px;border-radius:50%;pointer-events:none}
+.pin.destino .aro{box-shadow:0 0 0 2.5px var(--bolsa),0 0 0 8px rgba(59,143,224,.22)}
+.pin.enruta .aro{box-shadow:0 0 0 2.5px var(--cinta-amar),0 0 0 8px rgba(240,180,41,.22)}
+.pin.hecho .tag{opacity:.5}
+.pin .num{position:absolute;top:-7px;right:-9px;min-width:18px;height:18px;
+  border-radius:99px;background:var(--cinta-amar);color:#1A1204;
+  font-family:'MartianMono',monospace;font-size:9px;font-weight:700;
+  display:grid;place-items:center;padding:0 4px;border:1.5px solid var(--fondo)}
+.pin-label{font-family:'Archivo',sans-serif;
+  font-variation-settings:'wdth' 104,'wght' 650;font-size:10px;
+  color:var(--texto);background:var(--carta);padding:3px 7px;border-radius:6px;
+  white-space:nowrap;box-shadow:var(--sombra);border:1px solid var(--borde)}
+.finca-label{font-family:'Archivo',sans-serif;
+  font-variation-settings:'wdth' 112,'wght' 750;font-size:9.5px;
+  text-transform:uppercase;letter-spacing:.07em;color:var(--texto);
+  background:rgba(8,15,12,.82);padding:3px 8px;border-radius:99px;
+  white-space:nowrap;pointer-events:none;display:flex;align-items:center;gap:5px}
+body.campo .finca-label{background:rgba(255,255,255,.9);color:#0A1310}
+.finca-label i{width:6px;height:6px;border-radius:50%;background:var(--c,#fff);
+  flex:none;font-style:normal}
+.leyenda{position:absolute;left:12px;bottom:12px;z-index:1000;
+  background:var(--carta);border:1px solid var(--borde);border-radius:var(--r-md);
+  padding:12px 14px;box-shadow:var(--sombra);max-width:60vw}
+.leyenda h4{margin:0 0 9px;font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;
+  font-variation-settings:'wdth' 116,'wght' 750;color:var(--texto-3)}
+.leyenda div{display:flex;align-items:center;gap:9px;font-size:11px;
+  margin-bottom:6px;color:var(--texto)}
+.leyenda div:last-child{margin-bottom:0}
+.leyenda i{width:11px;height:11px;border-radius:3px;flex:none;font-style:normal}
 
 /* ===================================================================
    FLOTANTES
    =================================================================== */
 .fab{
-  position:fixed;right:16px;bottom:calc(env(safe-area-inset-bottom,0px) + 76px);
-  width:56px;height:56px;border-radius:19px;border:0;z-index:50;
-  background:var(--bolsa);color:#fff;box-shadow:0 6px 20px rgba(29,111,192,.4);
-  display:none;align-items:center;justify-content:center;
-  transition:transform .12s;
+  position:fixed;right:17px;bottom:calc(env(safe-area-inset-bottom,0px) + 78px);
+  width:58px;height:58px;border-radius:20px;border:0;z-index:50;
+  background:var(--verde);color:#062012;
+  box-shadow:0 8px 26px rgba(61,220,132,.34);
+  display:none;align-items:center;justify-content:center;transition:transform .12s;
 }
 .fab.on{display:flex}
 .fab:active{transform:scale(.93)}
-.fab svg{width:26px;height:26px;fill:none;stroke:currentColor;
-  stroke-width:2.3;stroke-linecap:round}
+.fab svg{width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round}
 .toast{
   position:fixed;left:14px;right:14px;
-  bottom:calc(env(safe-area-inset-bottom,0px) + 78px);
-  background:var(--tinta);color:#fff;padding:13px 16px;
-  border-radius:var(--r-md);font-size:13.5px;line-height:1.4;
+  bottom:calc(env(safe-area-inset-bottom,0px) + 80px);
+  background:var(--carta);color:var(--texto);border:1px solid var(--borde-2);
+  padding:13px 16px;border-radius:var(--r-md);font-size:13.5px;line-height:1.4;
   z-index:100;opacity:0;transform:translateY(14px);
-  transition:.28s cubic-bezier(.2,.85,.3,1);pointer-events:none;
-  box-shadow:var(--sombra-alta);
+  transition:.3s cubic-bezier(.2,.85,.3,1);pointer-events:none;box-shadow:var(--sombra-alta);
 }
 .toast.on{opacity:1;transform:none}
 .aviso-act{
-  position:fixed;left:12px;right:12px;
-  bottom:calc(env(safe-area-inset-bottom,0px) + 78px);z-index:60;
-  background:var(--hoja);color:#fff;border-radius:var(--r-md);
-  padding:13px 15px;display:flex;gap:11px;align-items:center;
-  box-shadow:var(--sombra-alta);animation:sube2 .3s cubic-bezier(.2,.85,.3,1);
+  position:fixed;left:13px;right:13px;
+  bottom:calc(env(safe-area-inset-bottom,0px) + 80px);z-index:60;
+  background:var(--carta);color:var(--texto);border:1px solid var(--borde-2);
+  border-left:3px solid var(--verde);border-radius:var(--r-md);
+  padding:14px 15px;display:flex;gap:12px;align-items:center;
+  box-shadow:var(--sombra-alta);animation:sube2 .32s cubic-bezier(.2,.85,.3,1);
 }
-@keyframes sube2{from{transform:translateY(120%);opacity:0}}
+@keyframes sube2{from{transform:translateY(130%);opacity:0}}
 .aviso-act b{flex:1;font-size:13.5px;
   font-variation-settings:'wdth' 102,'wght' 650;line-height:1.35}
-.aviso-act button{
-  background:#fff;color:var(--hoja);border:0;border-radius:var(--r-sm);
-  padding:10px 15px;font-family:inherit;font-size:12.5px;
-  font-variation-settings:'wght' 750;flex:none;
-}
+.aviso-act button{background:var(--verde);color:#062012;border:0;
+  border-radius:var(--r-sm);padding:10px 15px;font-family:inherit;font-size:12.5px;
+  font-variation-settings:'wght' 750;flex:none}
 
-/* ---- guía de primer uso ---- */
-.guia{
-  position:fixed;inset:0;z-index:120;background:var(--tinta);color:#fff;
+.guia{position:fixed;inset:0;z-index:120;background:var(--fondo);color:var(--texto);
   display:flex;flex-direction:column;
-  padding:calc(env(safe-area-inset-top,0px) + 30px) 24px
-          calc(env(safe-area-inset-bottom,0px) + 24px);
-}
-.guia .paso{flex:1;display:flex;flex-direction:column;justify-content:center;gap:16px}
-.guia .ico{font-size:46px;line-height:1}
-.guia h2{font-size:25px;
-  font-variation-settings:'wdth' 108,'wght' 750;letter-spacing:-.02em}
-.guia p{font-size:15.5px;line-height:1.6;margin:0;color:rgba(255,255,255,.78)}
-.guia .pts{display:flex;gap:6px;justify-content:center;margin-bottom:18px}
-.guia .pts i{width:7px;height:7px;border-radius:50%;
-  background:rgba(255,255,255,.24);transition:.25s}
-.guia .pts i.on{background:var(--bolsa);width:22px;border-radius:99px}
-.guia .btn.grey{background:rgba(255,255,255,.12);color:#fff}
+  padding:calc(env(safe-area-inset-top,0px) + 32px) 25px
+          calc(env(safe-area-inset-bottom,0px) + 25px)}
+.guia .paso{flex:1;display:flex;flex-direction:column;justify-content:center;gap:17px}
+.guia .ico{font-size:48px;line-height:1}
+.guia h2{font-size:26px;font-variation-settings:'wdth' 106,'wght' 750;letter-spacing:-.025em}
+.guia p{font-size:15.5px;line-height:1.6;margin:0;color:var(--texto-2)}
+.guia .pts{display:flex;gap:6px;justify-content:center;margin-bottom:19px}
+.guia .pts i{width:7px;height:7px;border-radius:50%;background:var(--borde-2);transition:.25s}
+.guia .pts i.on{background:var(--verde);width:22px;border-radius:99px}
 
-/* ---- diagnóstico ---- */
-.diag{
-  font-family:'MartianMono',monospace;font-size:10.5px;line-height:1.75;
-  background:var(--tinta);color:#C8D4CB;border-radius:var(--r-md);
-  padding:12px 14px;white-space:pre-wrap;word-break:break-all;margin:8px 0;
-}
+.diag{font-family:'MartianMono',monospace;font-size:10.5px;line-height:1.75;
+  background:var(--carta);border:1px solid var(--borde);color:var(--texto-2);
+  border-radius:var(--r-md);padding:12px 14px;white-space:pre-wrap;
+  word-break:break-all;margin:8px 0}
 
-/* ===================================================================
-   ACCESIBILIDAD
-   =================================================================== */
-:focus-visible{outline:2.5px solid var(--bolsa);outline-offset:2px;border-radius:4px}
+:focus-visible{outline:2.5px solid var(--verde);outline-offset:2px;border-radius:5px}
 @media (prefers-reduced-motion:reduce){
   *{animation-duration:.01ms !important;transition-duration:.01ms !important}
   #ring,#needle{transition:none}
 }
 @media (max-width:340px){
-  .dialwrap{width:min(80vw,250px)}
+  .dialwrap{width:min(80vw,244px)}
   .dist{font-size:34px}
+  .fichas{grid-template-columns:1fr}
 }
 </style>
 </head>
 <body>
 <div id="app">
   <header>
-    <span class="brand">RUMBO<i id="vTag">v17</i></span>
+    <span class="brand">RUMBO<i id="vTag">v20</i></span>
     <span class="where" id="where">buscando señal…</span>
     <span class="grabando" id="grabIco" style="display:none">● grabando</span>
   </header>
@@ -1366,7 +1381,7 @@ input:focus,textarea:focus,select:focus{outline:none;border-color:var(--bolsa)}
   <main>
     <!-- ============ IR ============ -->
     <section class="view on" id="ir">
-      <div class="instrumento">
+      <div class="instrumento"><div class="zona-ir">
       <button id="pickBtn">
         <span class="cinta" id="tgtCinta" style="--c:var(--latex)"></span>
         <span style="flex:1;min-width:0">
@@ -1427,7 +1442,7 @@ input:focus,textarea:focus,select:focus{outline:none;border-color:var(--bolsa)}
         <span class="dot" id="gpsDot"></span>
         <span id="gpsTxt">Toca "Activar ubicación"</span>
       </div>
-      </div><!-- /instrumento -->
+      </div></div><!-- /instrumento -->
       <div class="row" id="filaPermiso">
         <button class="btn wide" id="btnGPS">Activar ubicación</button>
       </div>
@@ -1493,7 +1508,11 @@ input:focus,textarea:focus,select:focus{outline:none;border-color:var(--bolsa)}
         </div>
         <p class="med-ayuda" id="medAyuda">Toca el mapa para poner vértices, o camina y usa <b>+ Aquí</b>.</p>
       </div>
-      <div class="mapbtns">
+      <div class="mapbtns" id="mapbtns">
+        <button id="mMenu" class="jefe" title="Herramientas">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="12" cy="19" r="1.7"/></svg>
+        </button>
+        <div class="mapgrupo" id="mapgrupo">
         <button id="mCenter" title="Centrar en mí"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/><path d="M12 1v3M12 20v3M1 12h3M20 12h3"/></svg></button>
         <button id="mLabels" class="act" title="Nombres"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h10M4 17h7"/></svg></button>
         <button id="mFit" title="Ver todo"><svg viewBox="0 0 24 24"><path d="M3 9V3h6M21 9V3h-6M3 15v6h6M21 15v6h-6"/></svg></button>
@@ -1501,11 +1520,15 @@ input:focus,textarea:focus,select:focus{outline:none;border-color:var(--bolsa)}
         <button id="mMedir" title="Medir o grabar recorrido"><svg viewBox="0 0 24 24"><path d="M2 15 8 9l3 3 5-5 6 6"/><circle cx="8" cy="9" r="1.6"/><circle cx="16" cy="7" r="1.6"/></svg></button>
         <button id="mVias" title="Descargar vías para rutas"><svg viewBox="0 0 24 24"><path d="M4 20 L10 4"/><path d="M20 20 L14 4"/><path d="M12 8v2M12 13v2M12 18v2"/></svg></button>
         <button id="mDesc" title="Descargar mapa de la zona"><svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 11l5 5 5-5"/><path d="M4 20h16"/></svg></button>
+        <button id="mLeyenda" title="Qué significan los colores"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg></button>
+        </div>
       </div>
+      <div class="leyenda" id="leyenda" style="display:none"></div>
     </section>
 
     <!-- ============ PUNTOS ============ -->
     <section class="view" id="puntos">
+      <div class="carta" id="resumen" style="margin-top:4px"></div>
       <div class="search"><input id="q" type="search" placeholder="Buscar punto o finca…" autocomplete="off"></div>
       <div class="selfinca"><select id="selFinca"><option value="">Todas las fincas</option></select></div>
       <div class="chips" id="chips"></div>
@@ -1553,7 +1576,7 @@ const TIPOS = {
   fauna:        {t:'Fauna / bosque',  c:'#6B4E9E', s:'FA'},
   otro:         {t:'Otro',            c:'#6E7A72', s:'··'}
 };
-const VERSION = 'v17';
+const VERSION = 'v20';
 const tipoDe = k => TIPOS[k] || TIPOS.otro;
 
 /* Fondos del mapa. Se ven con señal y quedan guardados para usarlos sin ella.
@@ -1665,6 +1688,61 @@ async function guardarSeguro(clave, valor, quePierde){
    contarse, ni exportarse, ni salir en respaldos. Todo lo que mire los
    datos reales pasa por aquí. */
 const puntosReales = () => S.puntos.filter(p=>!p.temporal);
+
+/* Las fincas de Sara Palma se reparten en dos bloques geográficos con
+   un tercero suelto. Esa división es real y sirve para planear el día:
+   nadie cruza de norte a sur por gusto. */
+const ZONAS = {
+  NORTE : {t:'Norte',  c:'#2AA0A8'},
+  SUR   : {t:'Sur',    c:'#2E6B50'},
+  CENTRO: {t:'Centro', c:'#B8752A'},
+  '':     {t:'Sin zona', c:'#6E7A72'}
+};
+const zonaDe = k => ZONAS[(k||'').toUpperCase()] || ZONAS[''];
+
+let _zonaCache = null;
+function zonaDeFinca(nombre){
+  if(!S.fincas) return '';
+  if(!_zonaCache){
+    _zonaCache = new Map();
+    S.fincas.features.forEach(f=>{
+      const pr=f.properties||{};
+      _zonaCache.set(nombreFinca(f), String(pr.zona||pr.ZONA||'').toUpperCase());
+    });
+  }
+  return _zonaCache.get(nombre) || '';
+}
+
+/* ---------------------------------------------------------------
+   ESTADO DE UN PUNTO — el mismo código de color en lista y mapa.
+   El orden importa: lo que urge gana sobre lo que informa.
+   --------------------------------------------------------------- */
+function estadoPunto(p){
+  if(S.destinoId===p.id) return {k:'destino', c:'#1D6FC0', t:'Destino'};
+  if(S.plan){
+    const i=S.plan.paradas.findIndex(x=>!x.hecho &&
+      (x.clase==='punto' ? x.id===p.id : idTemporal(x)===p.id));
+    if(i>=0) return {k:'enruta', c:'#E0A11C', t:'En el recorrido',
+                     n:S.plan.paradas.filter(x=>x.hecho).length + 1};
+  }
+  const uv=ultimaVisita(p.id);
+  if(uv && uv.estado==='novedad') return {k:'novedad', c:'#C63A2F', t:'Con novedad'};
+  const ev=estadoVence(p.vence);
+  if(ev && ev.urgente) return {k:'vence', c:'#C63A2F', t:'Por vencer'};
+  if(cubierto(p.id)) return {k:'hecho', c:'#3C8F5C', t:'Revisado'};
+  return {k:'pendiente', c:'#65726A', t:'Pendiente'};
+}
+
+/* Estado de una finca completa: qué tanto le falta este ciclo */
+function estadoFinca(nombre){
+  if(S.plan && S.plan.paradas.some(x=>!x.hecho && x.clase==='finca' && x.id===nombre))
+    return {k:'enruta', c:'#E0A11C'};
+  const ps=puntosReales().filter(p=>(p.finca||'')===nombre);
+  if(!ps.length) return {k:'sinpuntos', c:null};
+  return ps.every(p=>cubierto(p.id))
+    ? {k:'hecho', c:'#3C8F5C'}
+    : {k:'pendiente', c:null};
+}
 const guardarPuntos = ()=> guardarSeguro('puntos', S.puntos, 'el punto');
 const guardarVisitas = ()=> guardarSeguro('visitas', S.visitas, 'la visita');
 const guardarTrazos  = ()=> guardarSeguro('trazos', S.trazos, 'el trazo');
@@ -2906,7 +2984,8 @@ function paradasDisponibles(){
     const ha=pr.ha || pr.ha_calc || pr.HA || pr.area_ha;
     const zona=pr.zona||pr.ZONA||'';
     out.push({clase:'finca', id:nom, nombre:nom, lat:c[0], lon:c[1], finca:nom,
-      detalle:'Finca completa'+(ha? ' · '+(+ha).toFixed(1)+' ha':'')+(zona? ' · '+zona:'')});
+      detalle:'Finca completa'+(ha? ' · '+(+ha).toFixed(1)+' ha':'')
+              +(zona? ' · '+zonaDe(zona).t:'')});
   });
 
   S.puntos.forEach(p=>{
@@ -3035,8 +3114,16 @@ function ordenAproximado(D, n, volver){
 
 async function optimizar(origen, paradas, volver, avisar){
   if(!paradas.length) return null;
-  if(paradas.length===1)
-    return {orden:[0], total:distancia(origen.lat,origen.lon,paradas[0].lat,paradas[0].lon)};
+
+  /* Con una sola parada se devolvía un resultado a medias, sin tramos,
+     y la pantalla del resumen reventaba al pintarlo. El error quedaba
+     sin capturar y el botón se congelaba en "Calculando…". */
+  if(paradas.length===1){
+    const ida=distancia(origen.lat,origen.lon,paradas[0].lat,paradas[0].lon);
+    return {orden:[0], total: ida + (volver? ida : 0), tramos:[ida],
+            regreso: volver? ida : 0, exacto:true};
+  }
+
   const D=await matrizDistancias(origen, paradas, avisar);
   const n=paradas.length;
   const r = n<=14 ? ordenExacto(D,n,volver) : ordenAproximado(D,n,volver);
@@ -3047,33 +3134,80 @@ async function optimizar(origen, paradas, volver, avisar){
   return r;
 }
 
-function hojaPlanear(){
-  const disp=paradasDisponibles();
+function hojaPlanear(agregar){
+  let disp=paradasDisponibles();
   if(!disp.length) return aviso('Primero agrega puntos o mide áreas');
   const sel=new Set();
   let volver=false;
   const fincas=[...new Set(disp.map(p=>p.finca))].sort();
 
+  /* Cada parada lleva su zona, para poder agrupar y filtrar por ella */
+  disp.forEach(p=>{ p.zona = p.clase==='finca' ? zonaDeFinca(p.id) : zonaDeFinca(p.finca); });
+  let verClase='todo', verZona='todo';
+
   function fila(p){
     const k=p.clase+':'+p.id;
+    const zc=zonaDe(p.zona).c;
     return `<div class="selpar ${sel.has(k)?'on':''}" data-k="${k}">
       <span class="mk"></span>
+      <span class="cinta" style="--c:${zc};height:26px;width:6px"></span>
       <div style="flex:1;min-width:0">
-        <b style="display:block;font-size:13.5px">${esc(p.nombre)}</b>
-        <span style="font-size:11px;opacity:.62">${esc(p.detalle)}${cubiertoPar(p)?' · ya visitado':''}</span>
+        <b style="display:block;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(p.nombre)}</b>
+        <span style="font-size:11px;color:var(--texto-2)">${esc(p.detalle)}${cubiertoPar(p)?' · ya revisado':''}</span>
       </div></div>`;
   }
-  const cuerpo=()=>fincas.map(f=>{
-    const ps=disp.filter(p=>p.finca===f)
-      .sort((a,b)=>(a.clase==='finca'?0:1)-(b.clase==='finca'?0:1));
-    return `<div class="grp" style="margin-top:10px">${esc(f)}
-      <button class="mini-todo" data-finca="${esc(f)}">todos</button></div>`+ps.map(fila).join('');
-  }).join('');
+
+  function seccion(titulo, lista, clave){
+    if(!lista.length) return '';
+    return `<div class="grp">${esc(titulo)}
+      <button class="mini-todo" data-lote="${esc(clave)}">todas</button></div>`
+      + lista.map(fila).join('');
+  }
+
+  /* Estratos: primero las fincas por zona, luego lo medido, luego los
+     puntos agrupados por finca. Antes salía todo revuelto. */
+  function cuerpo(){
+    const pasa = p => (verClase==='todo' || p.clase===verClase)
+                   && (verZona==='todo'  || p.zona===verZona);
+    const d = disp.filter(pasa);
+    let h='';
+
+    ['NORTE','SUR','CENTRO',''].forEach(z=>{
+      const ls=d.filter(p=>p.clase==='finca' && p.zona===z);
+      h+=seccion('Fincas · '+zonaDe(z).t, ls, 'finca|'+z);
+    });
+
+    const areas=d.filter(p=>p.clase==='trazo');
+    h+=seccion('Áreas y recorridos medidos', areas, 'trazo|');
+
+    const pts=d.filter(p=>p.clase==='punto');
+    [...new Set(pts.map(p=>p.finca))].sort().forEach(f=>{
+      const ls=pts.filter(p=>p.finca===f);
+      h+=seccion('Puntos · '+f, ls, 'punto|'+f);
+    });
+
+    return h || '<p class="mini" style="padding:18px 0">Nada con ese filtro.</p>';
+  }
 
   abrirHoja(`
-    <h3>Planear recorrido</h3>
-    <p class="mini" style="margin:-6px 0 6px">Marca todo lo que hay que visitar hoy. Pueden ser puntos y reservorios de fincas distintas.</p>
-    <div id="pl_lista" style="max-height:46vh;overflow:auto;margin-bottom:12px">${cuerpo()}</div>
+    <h3>${agregar? 'Agregar paradas' : 'Planear recorrido'}</h3>
+    <p class="mini" style="margin:-6px 0 10px">${agregar
+      ? 'Lo que marques se suma al recorrido en curso y se reordena lo que falta.'
+      : 'Marca lo que hay que visitar hoy. Fincas completas, áreas medidas y puntos sueltos se pueden mezclar.'}</p>
+    <div class="chips" id="pl_clase" style="padding:0 0 7px">
+      <button class="chip on" data-c="todo">Todo</button>
+      <button class="chip" data-c="finca">Fincas ${disp.filter(p=>p.clase==='finca').length}</button>
+      <button class="chip" data-c="trazo">Áreas ${disp.filter(p=>p.clase==='trazo').length}</button>
+      <button class="chip" data-c="punto">Puntos ${disp.filter(p=>p.clase==='punto').length}</button>
+    </div>
+    <div class="chips" id="pl_zona" style="padding:0 0 9px">
+      <button class="chip on" data-z="todo">Toda la zona</button>
+      ${['NORTE','SUR','CENTRO'].map(z=>{
+        const n=disp.filter(p=>p.zona===z).length;
+        return n? `<button class="chip" data-z="${z}" style="color:${zonaDe(z).c}">${zonaDe(z).t} ${n}</button>` : '';
+      }).join('')}
+    </div>
+    <div id="pl_lista" style="max-height:42vh;overflow:auto;margin-bottom:12px">${cuerpo()}</div>
     <label class="chk"><input type="checkbox" id="pl_volver"> Volver al punto de partida al terminar</label>
     <button class="btn wide" style="margin-top:12px" id="pl_ok">Calcular el mejor orden</button>
     <p class="mini" id="pl_est" style="margin-top:9px">Nada seleccionado.</p>`);
@@ -3087,10 +3221,28 @@ function hojaPlanear(){
           : 'se calculará un orden muy bueno (son muchas)')
       : 'Nada seleccionado.';
   }
+  function repintar(){
+    c.querySelector('#pl_lista').innerHTML=cuerpo();
+    actualizar();
+  }
+  c.querySelector('#pl_clase').onclick=e=>{
+    const b=e.target.closest('[data-c]'); if(!b) return;
+    verClase=b.dataset.c;
+    c.querySelectorAll('#pl_clase .chip').forEach(x=>x.classList.toggle('on',x===b));
+    repintar();
+  };
+  c.querySelector('#pl_zona').onclick=e=>{
+    const b=e.target.closest('[data-z]'); if(!b) return;
+    verZona=b.dataset.z;
+    c.querySelectorAll('#pl_zona .chip').forEach(x=>x.classList.toggle('on',x===b));
+    repintar();
+  };
   c.querySelector('#pl_lista').onclick=e=>{
-    const todo=e.target.closest('[data-finca]');
-    if(todo){
-      const ps=disp.filter(p=>p.finca===todo.dataset.finca);
+    const lote=e.target.closest('[data-lote]');
+    if(lote){
+      const [clase,val]=lote.dataset.lote.split('|');
+      const ps=disp.filter(p=>p.clase===clase &&
+        (clase==='finca' ? p.zona===val : clase==='punto' ? p.finca===val : true));
       const faltan=ps.some(p=>!sel.has(p.clase+':'+p.id));
       ps.forEach(p=>{ const k=p.clase+':'+p.id; faltan? sel.add(k) : sel.delete(k); });
       c.querySelectorAll('.selpar').forEach(el=>el.classList.toggle('on',sel.has(el.dataset.k)));
@@ -3103,23 +3255,39 @@ function hojaPlanear(){
     actualizar();
   };
   c.querySelector('#pl_volver').onchange=e=>{ volver=e.target.checked; };
+  if(agregar){
+    /* lo que ya está en el recorrido no se vuelve a ofrecer */
+    const yaEstan=new Set((S.plan? S.plan.paradas:[]).map(p=>p.clase+':'+p.id));
+    disp = disp.filter(p=>!yaEstan.has(p.clase+':'+p.id));
+    if(!disp.length){ cerrarHoja(); return aviso('Ya está todo en el recorrido'); }
+    c.querySelector('#pl_lista').innerHTML=cuerpo();
+  }
+
   c.querySelector('#pl_ok').onclick=async()=>{
     if(!sel.size) return aviso('Marca al menos una parada');
     if(!S.pos) return aviso('Sin posición GPS: no se sabe desde dónde salir');
     const paradas=disp.filter(p=>sel.has(p.clase+':'+p.id));
     const b=c.querySelector('#pl_ok');
+    const soltar=()=>{ b.disabled=false; b.textContent='Calcular el mejor orden'; };
     b.disabled=true; b.textContent='Calculando…';
-    const r=await optimizar({lat:S.pos.lat,lon:S.pos.lon}, paradas, volver,
-      pct=>{ b.textContent='Calculando… '+pct+'%'; });
-    if(!r){ b.disabled=false; b.textContent='Calcular el mejor orden'; return aviso('No se pudo calcular'); }
-    hojaPlanResumen(paradas, r, volver);
+    let r=null;
+    try{
+      r=await optimizar({lat:S.pos.lat,lon:S.pos.lon}, paradas, volver,
+        pct=>{ b.textContent='Calculando… '+pct+'%'; });
+    }catch(err){
+      soltar(); return aviso('No se pudo calcular: '+(err.message||err));
+    }
+    if(!r){ soltar(); return aviso('No se pudo calcular el orden'); }
+    /* si el resumen falla al pintarse, el botón vuelve en vez de colgarse */
+    try{ hojaPlanResumen(paradas, r, volver, agregar); }
+    catch(err){ soltar(); aviso('No se pudo mostrar el orden: '+(err.message||err)); }
   };
   actualizar();
 }
 
 const cubiertoPar = p => p.clase==='punto' ? cubierto(p.id) : false;
 
-function hojaPlanResumen(paradas, r, volver){
+function hojaPlanResumen(paradas, r, volver, agregar){
   const orden=r.orden.map(i=>paradas[i]);
   const total=r.total;
   abrirHoja(`
@@ -3142,17 +3310,26 @@ function hojaPlanResumen(paradas, r, volver){
       ? 'Es el orden más corto posible, no una aproximación.'
       : 'Son muchas paradas para probarlas todas; este orden está muy cerca del mejor.'}
       ${G? 'Las distancias van por vía.' : 'Sin vías descargadas: distancias en línea recta, aproximadas.'}</p>
-    <button class="btn wide" style="margin-top:12px" id="pr_ok">Iniciar recorrido</button>
+    <button class="btn wide" style="margin-top:12px" id="pr_ok">${agregar? 'Sumar al recorrido' : 'Iniciar recorrido'}</button>
     <button class="btn grey wide" style="margin-top:9px" id="pr_no">Volver a elegir</button>`);
   const c=$('#sheetCard');
   c.querySelector('#pr_ok').onclick=async()=>{
+    if(agregar && S.plan){
+      /* se suman al final y se reordena lo pendiente desde donde estoy */
+      S.plan.paradas=[...S.plan.paradas, ...orden.map(p=>({...p,hecho:false}))];
+      await guardarPlan();
+      cerrarHoja(); irA('ir');
+      await reoptimizarRestante();
+      return aviso(orden.length+' parada'+(orden.length===1?'':'s')+
+                   ' sumadas · faltan '+faltanParadas());
+    }
     S.plan={paradas:orden.map(p=>({...p,hecho:false})), volver,
       inicio:{lat:S.pos.lat,lon:S.pos.lon}, creado:Date.now(), total};
     await guardarPlan();
     cerrarHoja(); irA('ir'); apuntarAParada(); refrescar();
     aviso('Recorrido iniciado · '+orden.length+' paradas');
   };
-  c.querySelector('#pr_no').onclick=hojaPlanear;
+  c.querySelector('#pr_no').onclick=()=>hojaPlanear(agregar);
 }
 
 /* Apunta la navegación a la parada pendiente. Si es un área, se crea
@@ -3268,7 +3445,7 @@ function hojaParadas(){
     aviso('Parada quitada · quedan '+faltanParadas());
   });
   c.querySelector('#pa_re').onclick=async()=>{ cerrarHoja(); await reoptimizarRestante(); };
-  c.querySelector('#pa_add').onclick=hojaPlanear;
+  c.querySelector('#pa_add').onclick=()=>hojaPlanear(true);
   c.querySelector('#pa_fin').onclick=()=>{ cerrarPlan(); cerrarHoja(); };
 }
 
@@ -3615,28 +3792,45 @@ function pintarMapa(){
 
   if(S.fincas){
     L.geoJSON(S.fincas,{
-      style:f=>/LineString/.test(f.geometry.type)
-        ? {color:'#B8752A',weight:2.4,opacity:.9,dashArray:'1 5',lineCap:'round'}   // caminos y canales
-        : {color:'#2E6B50',weight:1.8,fillColor:'#2E6B50',fillOpacity:.07},
+      style:f=>{
+        if(/LineString/.test(f.geometry.type))
+          return {color:'#B8752A',weight:2.4,opacity:.9,dashArray:'1 5',lineCap:'round'};
+        /* El tono dice la zona; el grosor y el trazo dicen el estado.
+           Dos canales distintos para dos datos distintos. */
+        const nom=nombreFinca(f);
+        const zc=zonaDe(zonaDeFinca(nom)).c;
+        const e=estadoFinca(nom);
+        if(e.k==='enruta')
+          return {color:'#E0A11C',weight:3.4,fillColor:zc,fillOpacity:.16};
+        if(e.k==='hecho')
+          return {color:'#3C8F5C',weight:2,fillColor:'#3C8F5C',fillOpacity:.11,dashArray:'1 4',lineCap:'round'};
+        return {color:zc,weight:1.9,fillColor:zc,fillOpacity:.08};
+      },
       onEachFeature:(f,l)=>{
         const esLinea=/LineString/.test(f.geometry.type), c=centroide(f);
-        if(etiquetas && c && !esLinea) L.marker(c,{interactive:false,icon:L.divIcon({className:'',
-          html:'<div class="finca-label">'+esc(nombreFinca(f))+'</div>',iconSize:[0,0]})}).addTo(capaFincas);
-        l.on('click',()=>aviso(nombreFinca(f)));
+        if(etiquetas && c && !esLinea){
+          const nom=nombreFinca(f), zc=zonaDe(zonaDeFinca(nom)).c;
+          L.marker(c,{interactive:false,icon:L.divIcon({className:'',iconSize:[0,0],
+            html:'<div class="finca-label" style="--c:'+zc+';transform:translate(-50%,-50%)">'
+                 +'<i></i>'+esc(nom)+'</div>'})}).addTo(capaFincas);
+        }
+        l.on('click',()=>{
+          const nom=nombreFinca(f), z=zonaDe(zonaDeFinca(nom));
+          const ps=puntosReales().filter(p=>(p.finca||'')===nom);
+          const hechos=ps.filter(p=>cubierto(p.id)).length;
+          aviso(nom+' · '+z.t+(ps.length? ' · '+hechos+'/'+ps.length+' revisados' : ' · sin puntos'));
+        });
       }
     }).addTo(capaFincas);
   }
 
   S.puntos.forEach(p=>{
-    const t=tipoDe(p.tipo), act=p.id===S.destinoId;
-    const html=`<div style="position:relative;transform:translate(-50%,-100%)">
-      <div style="display:flex;flex-direction:column;align-items:center">
-        <div style="background:${t.c};color:#fff;font:700 10px/1 ui-monospace,monospace;
-          width:22px;height:22px;border-radius:2px;display:grid;place-items:center;
-          border:${act?'2px solid #0C1A14':'1px solid rgba(255,255,255,.85)'};box-shadow:0 1px 3px rgba(0,0,0,.35)">${t.s}</div>
-        <div style="width:1px;height:8px;background:${t.c}"></div>
-      </div>
-      ${(etiquetas&&zoomEtiq)?`<div class="pin-label" style="position:absolute;top:100%;left:50%;transform:translateX(-50%);margin-top:2px">${esc(p.nombre)}</div>`:''}
+    const t=tipoDe(p.tipo), e=estadoPunto(p);
+    const html=`<div class="pin ${e.k}" style="--c:${t.c}">
+      <span class="aro"></span>
+      <span class="tag">${t.s}</span>
+      ${e.n? `<span class="num">${e.n}</span>` : ''}
+      ${(etiquetas&&zoomEtiq)?`<span class="pin-label" style="margin-top:3px">${esc(p.nombre)}</span>`:''}
       </div>`;
     L.marker([p.lat,p.lon],{icon:L.divIcon({className:'',html,iconSize:[0,0]})})
       .on('click',()=>detallePunto(p.id)).addTo(capaPuntos);
@@ -3671,6 +3865,21 @@ $('#mLabels').onclick=function(){ etiquetas=!etiquetas; this.classList.toggle('a
 $('#mBase').onclick=()=>{ const b=ponerBase(baseIdx+1); aviso('Fondo: '+b.nombre); };
 $('#mDesc').onclick=descargarZona;
 $('#mVias').onclick=descargarVias;
+$('#mMenu').onclick=()=>$('#mapbtns').classList.toggle('abierto');
+$('#mLeyenda').onclick=()=>{
+  const l=$('#leyenda');
+  if(l.style.display!=='none'){ l.style.display='none'; return; }
+  l.innerHTML =
+    '<h4>Zonas</h4>'
+    + ['NORTE','SUR','CENTRO'].map(z=>
+        `<div><i style="background:${zonaDe(z).c}"></i>${zonaDe(z).t}</div>`).join('')
+    + '<h4 style="margin-top:11px">Estado</h4>'
+    + [['#1D6FC0','A donde voy'],['#E0A11C','En el recorrido'],
+       ['#C63A2F','Novedad o por vencer'],['#3C8F5C','Revisado este ciclo'],
+       ['#65726A','Pendiente']].map(([c,t])=>
+        `<div><i style="background:${c};border-radius:50%"></i>${t}</div>`).join('');
+  l.style.display='';
+};
 $('#panelRuta').onclick=()=>{ if(!G) descargarVias(); };
 $('#btnCompartir').onclick=compartirUbicacion;
 $('#btnHallazgo').onclick=hallazgoAqui;
@@ -3792,6 +4001,83 @@ function pintarSelFinca(){
   sel.value=actual;
 }
 
+/* ---------------------------------------------------------------
+   RESUMEN DEL DÍA
+
+   Lo que hay que saber antes de salir, en un vistazo: cuánto llevas
+   del ciclo, cuántos puntos y fincas manejas, y qué está pidiendo
+   atención. Todo sale de datos que ya se calculaban; lo que faltaba
+   era ponerlos juntos.
+   --------------------------------------------------------------- */
+const ICONOS = {
+  punto:'<circle cx="12" cy="10" r="2.6"/><path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11z"/>',
+  finca:'<path d="M3 20V9l9-5 9 5v11"/><path d="M9 20v-6h6v6"/>',
+  foto :'<rect x="3" y="6" width="18" height="14" rx="3"/><circle cx="12" cy="13" r="3.4"/>',
+  visita:'<path d="M4 12l5 5L20 6"/>',
+  alerta:'<path d="M12 4l9 16H3z"/><path d="M12 10v4M12 17h.01"/>'
+};
+const svgIco = k => '<svg viewBox="0 0 24 24">'+ICONOS[k]+'</svg>';
+
+function pintarResumen(){
+  const cont=$('#resumen'); if(!cont) return;
+  const reales=puntosReales();
+  if(!reales.length && !S.trazos.length){ cont.style.display='none'; return; }
+  cont.style.display='';
+
+  const hechos=reales.filter(p=>cubierto(p.id)).length;
+  const pct=reales.length? hechos/reales.length : 0;
+  const fincas=new Set(reales.map(p=>p.finca||'Sin finca')).size;
+  const fotos=S.visitas.reduce((n,v)=>n+((v.fotos||[]).length),0);
+  const alertas=reales.filter(p=>{
+    const e=estadoVence(p.vence); if(e&&e.urgente) return true;
+    const uv=ultimaVisita(p.id); return uv && uv.estado==='novedad';
+  }).length;
+
+  const R=32, C=2*Math.PI*R;
+  cont.innerHTML=`
+    <div class="carta-cab">
+      <h4>Resumen del ciclo</h4>
+      <button class="enlace" id="res_ver">Ver avance ›</button>
+    </div>
+    <div class="avance" style="margin-bottom:14px">
+      <div class="anillo">
+        <svg viewBox="0 0 74 74">
+          <circle class="pista" cx="37" cy="37" r="${R}" fill="none" stroke-width="7"/>
+          <circle class="arco"  cx="37" cy="37" r="${R}" fill="none" stroke-width="7"
+                  stroke-dasharray="${C.toFixed(1)}"
+                  stroke-dashoffset="${(C*(1-pct)).toFixed(1)}"/>
+        </svg>
+        <b>${Math.round(pct*100)}%</b>
+      </div>
+      <div class="avance-tx">
+        <b>${hechos} de ${reales.length} revisados</b>
+        <span>${reales.length-hechos? (reales.length-hechos)+' puntos por visitar' : 'todo al día este ciclo'}</span>
+      </div>
+    </div>
+    <div class="fichas">
+      <div class="ficha"><span class="sello" style="--c:var(--verde)">${svgIco('punto')}</span>
+        <span style="min-width:0"><b>${reales.length}</b><span>Puntos</span></span></div>
+      <div class="ficha"><span class="sello" style="--c:var(--cinta-turq)">${svgIco('finca')}</span>
+        <span style="min-width:0"><b>${fincas}</b><span>Fincas con puntos</span></span></div>
+      <div class="ficha"><span class="sello" style="--c:var(--cinta-mora)">${svgIco('visita')}</span>
+        <span style="min-width:0"><b>${S.visitas.length}</b><span>Visitas</span></span></div>
+      <div class="ficha"><span class="sello" style="--c:var(--bolsa)">${svgIco('foto')}</span>
+        <span style="min-width:0"><b>${fotos}</b><span>Fotos</span></span></div>
+    </div>
+    ${alertas? `<div class="ficha" style="margin-top:9px;cursor:pointer" id="res_alerta">
+      <span class="sello" style="--c:var(--cinta-rojo)">${svgIco('alerta')}</span>
+      <span style="min-width:0"><b>${alertas}</b><span>Por revisar: novedad o vencimiento</span></span>
+    </div>`:''}`;
+
+  const va=cont.querySelector('#res_ver');
+  if(va) va.onclick=hojaDatos;
+  const al=cont.querySelector('#res_alerta');
+  if(al) al.onclick=()=>{
+    S.filtroN = S.filtroN==='vence' ? null : 'vence';
+    pintarChips(); pintarLista();
+  };
+}
+
 function pintarChips(){
   const reales=puntosReales();
   const usados=[...new Set(reales.map(p=>p.tipo))];
@@ -3853,11 +4139,15 @@ function pintarLista(){
     const [n,u]=fmtDist(p._d);
     const uv=ultimaVisita(p.id);
     const ev=estadoVence(p.vence);
-    h+=`<div class="item" data-id="${p.id}">
+    const ep=estadoPunto(p);
+    h+=`<div class="item es-${ep.k}" data-id="${p.id}">
       <div class="ic" style="background:${t.c}"></div>
       <div class="tx"><b>${esc(p.nombre)}</b><span>${uv
           ? `<i style="font-style:normal;color:${estadoDe(uv.estado).c};font-weight:700">${estadoDe(uv.estado).s}</i> ${fechaCorta(uv.cuando).slice(0,10)} · ${esc(p.finca||'sin finca')}`
           : esc(p.finca||'sin finca')+' · '+fmtCoord(p.lat,p.lon)}</span></div>
+      <span class="pip ${ep.k}" data-m="${
+        ep.k==='hecho'?'✓':ep.k==='novedad'||ep.k==='vence'?'!':
+        ep.k==='enruta'?(ep.n||'·'):ep.k==='destino'?'▸':''}"></span>
       <div class="d">${ev&&ev.urgente
           ? `<i style="font-style:normal;font-size:10px;font-weight:800;color:${ev.c}">${ev.t.replace('Vence en ','').replace('Vencido hace ','-')}</i>`
           : (p._d!=null? n+' '+u : '')}</div></div>`;
@@ -3879,15 +4169,15 @@ $('#pickBtn').onclick=()=>{
   ps.forEach(p=>{
     const t=tipoDe(p.tipo), [n,u]=fmtDist(p._d);
     h+=`<button class="pickrow" data-sel="${p.id}">
-      <span class="ic" style="background:${t.c};width:26px;height:26px;border-radius:2px;display:grid;
-        place-items:center;color:#fff;font:700 10px/1 ui-monospace,monospace">${t.s}</span>
-      <span><b>${esc(p.nombre)}</b><br><span style="font-family:var(--mono);font-size:11px;color:var(--ink2)">${esc(p.finca||'sin finca')}</span></span>
+      <span class="cinta" style="--c:${t.c};height:30px;width:9px"></span>
+      <span><b>${esc(p.nombre)}</b><br><span style="font-family:var(--mono);font-size:11px;color:var(--texto-2)">${esc(p.finca||'sin finca')}</span></span>
       <span>${p._d!=null? n+' '+u:''}</span></button>`;
   });
   abrirHoja(h);
   $('#sheetCard').querySelectorAll('[data-sel]').forEach(b=>b.onclick=()=>{
     S.destinoId=b.dataset.sel; Store.set('destino',S.destinoId);
-    cerrarHoja(); irA('ir'); pintarIr(); pintarMapa();
+    /* la lista también muestra cuál es el destino: hay que repintarla */
+    cerrarHoja(); irA('ir'); refrescar();
   });
 };
 
@@ -3927,7 +4217,7 @@ function detallePunto(id){
     </div>`);
   const c=$('#sheetCard');
   c.querySelector('[data-go]').onclick=()=>{ S.destinoId=p.id; Store.set('destino',p.id);
-    cerrarHoja(); irA('ir'); pintarIr(); pintarMapa(); };
+    cerrarHoja(); irA('ir'); refrescar(); };
   c.querySelector('[data-vis]').onclick=()=>hojaVisita(p.id);
   pintarHistorial(c.querySelector('#hist'), p.id);
   c.querySelector('[data-ed]').onclick=()=>editorPunto(p.id);
@@ -4163,7 +4453,9 @@ function hojaDatos(){
     <hr class="sep">
     <span class="lbl">Versión y diagnóstico</span>
     <div class="diag" id="diag">leyendo…</div>
-    <button class="btn ghost wide" style="margin-top:7px" data-guia>Ver la guía de uso</button>
+    <button class="btn ghost wide" style="margin-top:7px" data-campo>Modo campo (alto contraste)</button>
+    <p class="mini">Para trabajar a pleno sol: invierte a fondo claro y sube el contraste.</p>
+    <button class="btn ghost wide" style="margin-top:9px" data-guia>Ver la guía de uso</button>
     <button class="btn ghost wide" style="margin-top:9px" data-recargar>Buscar versión nueva</button>
     <button class="btn grey wide" style="margin-top:9px" data-reinst>Volver a instalar la app</button>
     <button class="btn danger wide" style="margin-top:9px" data-borrar>Borrar todo de este teléfono</button>
@@ -4230,6 +4522,17 @@ function hojaDatos(){
   c.querySelector('[data-rfot]').onclick=hojaRespaldoFotos;
   textoDiagnostico().then(t=>{ const d=c.querySelector('#diag'); if(d) d.textContent=t; });
   c.querySelector('[data-reinst]').onclick=reinstalar;
+  const bc=c.querySelector('[data-campo]');
+  const rotulaCampo=()=>{ bc.textContent = document.body.classList.contains('campo')
+    ? 'Modo noche (fondo oscuro)' : 'Modo campo (alto contraste)'; };
+  rotulaCampo();
+  bc.onclick=()=>{
+    const on=document.body.classList.toggle('campo');
+    try{ localStorage.setItem('rumbo_campo', on?'1':'0'); }catch(e){}
+    const mt=document.querySelector('meta[name=theme-color]');
+    if(mt) mt.setAttribute('content', on? '#F2F5F0' : '#080F0C');
+    rotulaCampo(); pintarMapa();
+  };
   c.querySelector('[data-guia]').onclick=()=>{ cerrarHoja(); mostrarGuia(); };
   c.querySelector('[data-borrar]').onclick=hojaBorrarTodo;
   c.querySelector('[data-recargar]').onclick=async()=>{
@@ -4242,7 +4545,7 @@ function hojaDatos(){
     }catch(e){ aviso('No se pudo consultar: '+e.message); }
   };
   const df=c.querySelector('[data-delf]');
-  if(df) df.onclick=async()=>{ S.fincas=null; await guardarFincas(); cerrarHoja(); refrescar(); aviso('Fincas quitadas'); };
+  if(df) df.onclick=async()=>{ S.fincas=null; _zonaCache=null; await guardarFincas(); cerrarHoja(); refrescar(); aviso('Fincas quitadas'); };
   fi.onchange=e=>{
     const f=e.target.files[0]; if(!f) return;
     const r=new FileReader();
@@ -4655,11 +4958,11 @@ async function importarJSON(txt){
       j.visitas.forEach(v=>{ if(v&&v.id&&!hay.has(v.id)){ S.visitas.push(v); hay.add(v.id); } });
       guardarVisitas();
     }
-    if(j.fincas){ S.fincas=j.fincas; nFin=j.fincas.features.length; }
+    if(j.fincas){ S.fincas=j.fincas; _zonaCache=null; nFin=j.fincas.features.length; }
   } else if(j.type==='FeatureCollection'){
     const pol=j.features.filter(f=>f.geometry&&/Polygon|LineString/.test(f.geometry.type));
     const pts=j.features.filter(f=>f.geometry&&f.geometry.type==='Point');
-    if(pol.length){ S.fincas={type:'FeatureCollection',features:pol}; nFin=pol.length; }
+    if(pol.length){ S.fincas={type:'FeatureCollection',features:pol}; _zonaCache=null; nFin=pol.length; }
     if(pts.length){
       nPtos=fusionar(pts.map(f=>{
         const p=f.properties||{};
@@ -4732,14 +5035,14 @@ async function importarCSV(txt){
 /* ---------------------------------------------------------------
    13. ARRANQUE
    --------------------------------------------------------------- */
-function refrescar(){ pintarSelFinca(); pintarChips(); pintarLista(); pintarIr(); pintarPlan(); pintarMapa(); }
+function refrescar(){ pintarResumen(); pintarSelFinca(); pintarChips(); pintarLista(); pintarIr(); pintarPlan(); pintarMapa(); }
 
 (async function inicio(){
   await Store.open();
   S.puntos = (await Store.get('puntos')) || [];
-  S.fincas = (await Store.get('fincas')) || null;
+  S.fincas = (await Store.get('fincas')) || null; _zonaCache=null;
   if(!S.fincas || !S.fincas.features || !S.fincas.features.length){
-    S.fincas = FINCAS_BASE; guardarFincas();
+    S.fincas = FINCAS_BASE; _zonaCache=null; guardarFincas();
   }
   S.visitas = (await Store.get('visitas')) || [];
   S.trazos  = (await Store.get('trazos'))  || [];
@@ -4756,6 +5059,13 @@ function refrescar(){ pintarSelFinca(); pintarChips(); pintarLista(); pintarIr()
   S.quien   = (await Store.get('quien')) || '';
   grabarRosa();
   cargarGrafo();
+  try{
+    if(localStorage.getItem('rumbo_campo')==='1'){
+      document.body.classList.add('campo');
+      const mt=document.querySelector('meta[name=theme-color]');
+      if(mt) mt.setAttribute('content','#F2F5F0');
+    }
+  }catch(e){}
   pedirPersistencia();
   if(!(await Store.get('guiaVista'))) setTimeout(mostrarGuia, 700);
   setTimeout(revisarRespaldo, 6000);
