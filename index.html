@@ -921,6 +921,12 @@ nav button.on::before{
 #tgtSub{display:block;font-size:11.5px;color:var(--texto-2);margin-top:2px;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #pickBtn .chevron{margin-left:auto;color:var(--texto-3);flex:none}
+.quitar-dst{
+  width:100%;background:transparent;border:0;color:var(--texto-3);
+  font-family:inherit;font-size:11.5px;
+  font-variation-settings:'wdth' 100,'wght' 650;
+  padding:9px 4px 2px;text-align:center;
+}
 
 .dialwrap{position:relative;width:min(72vw,282px);aspect-ratio:1;margin:18px auto 2px}
 .dialwrap svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
@@ -1099,6 +1105,11 @@ body.campo .chip.on{color:#fff}
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--texto)}
 .jn-cab span{font-family:'MartianMono',monospace;font-size:10px;
   color:var(--texto-2);white-space:nowrap}
+/* Salida visible: antes había que entrar a Paradas para terminar,
+   y nadie lo encontraba. */
+.jn-x{background:var(--carta-2);border:0;color:var(--texto-2);
+  width:26px;height:26px;border-radius:50%;font-size:13px;line-height:1;
+  flex:none;margin-left:2px}
 .jn-bar{height:4px;border-radius:99px;background:var(--carta-2);
   margin:11px 0 12px;overflow:hidden}
 .jn-bar i{display:block;height:100%;background:var(--verde);width:0;
@@ -1373,7 +1384,7 @@ body.campo .finca-label{background:rgba(255,255,255,.9);color:#0A1310}
 <body>
 <div id="app">
   <header>
-    <span class="brand">RUMBO<i id="vTag">v22</i></span>
+    <span class="brand">RUMBO<i id="vTag">v25</i></span>
     <span class="where" id="where">buscando señal…</span>
     <span class="grabando" id="grabIco" style="display:none">● grabando</span>
   </header>
@@ -1391,6 +1402,7 @@ body.campo .finca-label{background:rgba(255,255,255,.9);color:#0A1310}
         <svg class="chevron" viewBox="0 0 24 24" width="18" height="18" fill="none"
              stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>
       </button>
+      <button class="quitar-dst" id="btnQuitarDst" style="display:none">Dejar de navegar a este punto</button>
 
       <div class="dialwrap" id="dialwrap"><div class="index" aria-hidden="true"></div>
         <svg viewBox="0 0 200 200" aria-hidden="true">
@@ -1451,6 +1463,7 @@ body.campo .finca-label{background:rgba(255,255,255,.9);color:#0A1310}
         <div class="jn-cab">
           <b id="planParada">—</b>
           <span id="planCuenta">—</span>
+          <button class="jn-x" id="planFin" title="Terminar el recorrido">✕</button>
         </div>
         <div class="jn-bar"><i id="planBar"></i></div>
         <div class="jn-bot">
@@ -1576,7 +1589,7 @@ const TIPOS = {
   fauna:        {t:'Fauna / bosque',  c:'#6B4E9E', s:'FA'},
   otro:         {t:'Otro',            c:'#6E7A72', s:'··'}
 };
-const VERSION = 'v22';
+const VERSION = 'v25';
 const tipoDe = k => TIPOS[k] || TIPOS.otro;
 
 /* Fondos del mapa. Se ven con señal y quedan guardados para usarlos sin ella.
@@ -2974,6 +2987,23 @@ async function revisarRespaldo(){
    aproximación buena. Y todo se puede cambiar sobre la marcha.
    =============================================================== */
 
+/* Soltar el destino. Si era un punto de paso creado para navegar a una
+   finca o a un área, se va con él — salvo que alguien ya le haya
+   registrado evidencia encima. */
+async function quitarDestino(){
+  const id=S.destinoId;
+  if(!id) return;
+  S.destinoId=null; await Store.set('destino',null);
+  const p=S.puntos.find(x=>x.id===id);
+  if(p && p.temporal && !S.visitas.some(v=>v.puntoId===id)){
+    S.puntos=S.puntos.filter(x=>x.id!==id);
+    await guardarPuntos();
+  }
+  rutaActual=null;
+  refrescar();
+  aviso('Ya no vas a ningún punto');
+}
+
 /* Cualquier cosa a la que se pueda ir: un punto, o el centro de un
    área medida (un reservorio, por ejemplo). */
 function paradasDisponibles(){
@@ -3471,13 +3501,17 @@ function pintarIr(){
     $('#tgtSub').textContent = puntosReales().length? 'Toca para elegir un punto' : 'Primero agrega o importa puntos';
     $('#dist').innerHTML='—<small>m</small>'; $('#brg').textContent='rumbo —';
     $('#tgtPos').textContent='—'; needle.style.opacity=.18; girarReset(needle,0);
-    const tc0=$('#tgtCinta'); if(tc0) tc0.style.setProperty('--c','rgba(255,255,255,.22)');
+    const tc0=$('#tgtCinta'); if(tc0) tc0.style.setProperty('--c','var(--borde-2)');
+    const bq0=$('#btnQuitarDst'); if(bq0) bq0.style.display='none';
     return;
   }
   needle.style.opacity=1;
   $('#tgtName').textContent=d.nombre;
   $('#tgtSub').textContent=(d.finca? d.finca+' · ':'')+tipoDe(d.tipo).t;
   const tc=$('#tgtCinta'); if(tc) tc.style.setProperty('--c', tipoDe(d.tipo).c);
+  const bq=$('#btnQuitarDst');
+  /* con un recorrido activo manda el recorrido: la salida es su ✕ */
+  if(bq) bq.style.display = S.plan ? 'none' : '';
   $('#tgtPos').textContent=fmtCoord2(d.lat,d.lon);
 
   if(!S.pos){ $('#dist').innerHTML='—<small>m</small>'; $('#brg').textContent='esperando GPS'; return; }
@@ -3854,7 +3888,8 @@ function hojaFinca(nombre){
 
     <button class="btn wide" data-ir-finca>Navegar hasta la finca</button>
     <button class="btn ghost wide" style="margin-top:9px" data-plan-finca>
-      ${enPlan? 'Ya está en el recorrido' : 'Agregar al recorrido'}</button>
+      ${enPlan? 'Ya está en el recorrido'
+        : S.plan? 'Agregar al recorrido' : 'Iniciar un recorrido aquí'}</button>
     <button class="btn grey wide" style="margin-top:9px" data-ver-finca>Ver sus puntos en la lista</button>`);
 
   const c=$('#sheetCard');
@@ -3924,7 +3959,8 @@ function hojaTrazo(id){
       <div style="font-size:14px;white-space:pre-wrap">${esc(t.obs)}</div></div>`:''}
     <button class="btn wide" data-ir-tz>Navegar hasta aquí</button>
     <button class="btn ghost wide" style="margin-top:9px" data-plan-tz>
-      ${enPlan? 'Ya está en el recorrido' : 'Agregar al recorrido'}</button>
+      ${enPlan? 'Ya está en el recorrido'
+        : S.plan? 'Agregar al recorrido' : 'Iniciar un recorrido aquí'}</button>
     <div class="row" style="margin-top:9px">
       <button class="btn grey" data-enc-tz>Encuadrar</button>
       <button class="btn danger" data-del-tz>Eliminar</button>
@@ -4092,6 +4128,7 @@ $('#mLeyenda').onclick=()=>{
 };
 $('#panelRuta').onclick=()=>{ if(!G) descargarVias(); };
 $('#btnCompartir').onclick=compartirUbicacion;
+$('#btnQuitarDst').onclick=quitarDestino;
 $('#btnHallazgo').onclick=hallazgoAqui;
 $('#btnIrCoord').onclick=hojaIrCoord;
 $('#btnPlan').onclick=()=> S.plan? hojaParadas() : hojaPlanear();
@@ -4103,6 +4140,14 @@ $('#planVisita').onclick=()=>{
   hojaVisita(p.clase==='punto' ? p.id : idTemporal(p));
 };
 $('#planVer').onclick=hojaParadas;
+$('#planFin').onclick=async()=>{
+  if(!S.plan) return;
+  const faltan=faltanParadas();
+  if(faltan && !confirm('¿Terminar el recorrido?\n\n'+
+      'Quedan '+faltan+' parada'+(faltan===1?'':'s')+' sin hacer. '+
+      'Las visitas que ya registraste se conservan.')) return;
+  await cerrarPlan();
+};
 $('#selFinca').onchange=e=>{ S.finca=e.target.value; pintarChips(); pintarLista(); };
 $('#mMedir').onclick=()=>{ midiendo? cerrarMedicion() : abrirMedicion(); };
 $('#grabIco').onclick=()=>{ irA('mapa'); aviso('Grabando: '+trazoPts.length+' puntos'); };
@@ -4665,7 +4710,13 @@ function hojaDatos(){
     <span class="lbl">Traer datos a este teléfono</span>
     <button class="btn ghost wide" style="margin:7px 0" data-imp>Importar paquete o GeoJSON</button>
     <button class="btn ghost wide" data-csv>Importar puntos desde CSV</button>
-    <p class="mini" style="margin-top:8px">CSV con encabezados: <code>nombre,tipo,finca,lat,lon,notas</code>. Los shapes de fincas se exportan desde QGIS como <b>GeoJSON — EPSG:4326</b>.</p>
+    <p class="mini" style="margin-top:8px">Formatos que entiende, sin que tengas que elegir nada:</p>
+    <ul class="mini" style="margin:5px 0 0;padding-left:17px;line-height:1.75">
+      <li><b>Puntos</b> — CSV con <code>nombre, tipo, finca, lat, lon, notas, permiso, vence</code></li>
+      <li><b>Áreas y recorridos</b> — CSV con <code>trazo, clase, finca, orden, lat, lon, obs</code>, una fila por vértice</li>
+      <li><b>Linderos o áreas</b> — GeoJSON de QGIS en <b>EPSG:4326</b>; te pregunta cuál de los dos es</li>
+      <li><b>Paquetes de Rumbo</b> — arranque, respaldo, fotos, vías o mapa</li>
+    </ul>
 
     <hr class="sep">
     <button class="btn wide" data-arranque>Paquete de arranque (para otro teléfono)</button>
@@ -4781,9 +4832,28 @@ function hojaDatos(){
     S.fincasPropias=false; await Store.set('fincasPropias',false); await guardarFincas(); cerrarHoja(); refrescar(); aviso('Fincas quitadas'); };
   fi.onchange=e=>{
     const f=e.target.files[0]; if(!f) return;
+    /* Los primeros bytes dicen qué es de verdad, sin importar cómo se
+       llame el archivo. Un .xlsx renombrado a .csv es lo más común:
+       antes entraba, no se entendía nada, y no pasaba nada. */
+    /* Una sola lectura: de los mismos bytes salen la firma y el texto.
+       Leer dos veces (una para la cabecera y otra para el contenido)
+       fallaba en silencio con archivos de texto. */
     const r=new FileReader();
-    r.onload=()=>{ (modoCSV||/\.csv|\.txt$/i.test(f.name))? importarCSV(r.result) : importarJSON(r.result); };
-    r.readAsText(f,'utf-8');
+    r.onerror=()=>aviso('No se pudo leer el archivo. ¿Está completo?');
+    r.onload=()=>{
+      const buf=r.result;
+      const tipo=queArchivoEs(new Uint8Array(buf.slice(0,8)), f.name, modoCSV);
+      if(tipo.malo) return aviso(tipo.malo);
+      let txt='';
+      try{ txt=new TextDecoder('utf-8').decode(new Uint8Array(buf)); }
+      catch(err){ return aviso('No se pudo leer el texto del archivo'); }
+      if(!txt.trim()) return aviso('El archivo está vacío');
+      /* Un error aquí adentro no llega a ninguna parte: el lector se lo
+         traga y el usuario se queda mirando la pantalla. */
+      try{ tipo.csv? importarCSV(txt) : importarJSON(txt); }
+      catch(err){ aviso('No se pudo procesar: '+(err.message||err)); }
+    };
+    r.readAsArrayBuffer(f);
   };
 }
 $('#btnDatos').onclick=hojaDatos;
@@ -5314,7 +5384,16 @@ function exportarPaquete(){
   aviso('Paquete exportado · '+(txt.length/1024).toFixed(0)+' KB (las fotos van aparte)');
 }
 async function importarJSON(txt){
-  let j; try{ j=JSON.parse(txt); }catch(e){ return aviso('El archivo no se pudo leer'); }
+  let j;
+  try{ j=JSON.parse(txt); }
+  catch(e){
+    /* Si parece una tabla, casi seguro es un CSV con otro nombre */
+    const primera=(txt.split(/\r?\n/)[0]||'').toLowerCase();
+    if(/lat/.test(primera) && /lon/.test(primera))
+      return importarCSV(txt);
+    return aviso('El archivo no se pudo leer. Debe ser un CSV, un GeoJSON '+
+      'o un paquete de Rumbo, guardado como texto.');
+  }
 
   /* teselas del mapa que llegan de otro teléfono */
   if(j.rumboMapa && j.teselas){
@@ -5378,6 +5457,11 @@ async function importarJSON(txt){
   } else if(j.type==='FeatureCollection'){
     const pol=j.features.filter(f=>f.geometry&&/Polygon|LineString/.test(f.geometry.type));
     const pts=j.features.filter(f=>f.geometry&&f.geometry.type==='Point');
+    if(pol.length && !pts.length){
+      /* Un GeoJSON de polígonos puede ser linderos o áreas medidas.
+         Adivinar acierta la mitad de las veces; mejor preguntar. */
+      return preguntarGeoJSON(pol);
+    }
     if(pol.length){ S.fincas={type:'FeatureCollection',features:pol}; _zonaCache=null;
       S.fincasPropias=true; Store.set('fincasPropias',true); nFin=pol.length; }
     if(pts.length){
@@ -5415,6 +5499,141 @@ function fusionar(nuevos){
   });
   return n;
 }
+/* Acepta 2026-03-15, 15/03/2026 y 15-03-2026: la gente escribe la fecha
+   como le queda cómodo y no hay por qué pelear con eso. */
+function normalizarFecha(v){
+  const t=String(v||'').trim();
+  if(!t) return '';
+  let m=t.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
+  if(m) return m[1]+'-'+m[2].padStart(2,'0')+'-'+m[3].padStart(2,'0');
+  m=t.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+  if(m) return m[3]+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0');
+  return '';
+}
+
+/* Cada fila es un vértice; se agrupan por el nombre del trazo y se
+   ordenan por la columna orden si viene. */
+async function importarTrazosCSV(lineas, corta, cab, idx){
+  const iTz=idx('trazo'), iCl=idx('clase'), iF=idx('finca'),
+        iOr=idx('orden'), iLa=idx('lat'),
+        iLo=idx('lon')>=0?idx('lon'):idx('long'),
+        iOb=idx('obs')>=0?idx('obs'):idx('nota');
+  if(iLa<0||iLo<0) return aviso('El archivo de áreas necesita columnas lat y lon');
+
+  const grupos=new Map();
+  lineas.slice(1).forEach((l,n)=>{
+    const v=corta(l);
+    const lat=parseCoord(v[iLa]), lon=parseCoord(v[iLo]);
+    if(isNaN(lat)||isNaN(lon)) return;
+    const r=revisarCoord(lat,lon);
+    const nom=(v[iTz]||'').trim(); if(!nom) return;
+    if(!grupos.has(nom)) grupos.set(nom,{nombre:nom,
+      clase:(()=>{ const c=String(iCl>=0?v[iCl]:'').toLowerCase();
+        return c.startsWith('rec')?'recorrido' : c.startsWith('lin')?'linea' : 'area'; })(),
+      finca:iF>=0?(v[iF]||'').trim():'', obs:iOb>=0?(v[iOb]||'').trim():'', filas:[]});
+    grupos.get(nom).filas.push({o:iOr>=0? (parseFloat(v[iOr])||n) : n, p:[r.lat,r.lon]});
+  });
+  if(!grupos.size) return aviso('No se encontraron vértices válidos');
+
+  let n=0, flojos=0;
+  const hay=new Set(S.trazos.map(t=>t.nombre+'|'+(t.finca||'')));
+  for(const g of grupos.values()){
+    const pts=g.filas.sort((a,b)=>a.o-b.o).map(x=>x.p);
+    if(pts.length<2){ flojos++; continue; }
+    if(hay.has(g.nombre+'|'+g.finca)) continue;      // ya está: no duplicar
+    const metros=largoM(pts), area=g.clase==='area'? areaM2(pts) : 0;
+    S.trazos.push({id:'t'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),
+      nombre:g.nombre, clase:g.clase, finca:g.finca, obs:g.obs,
+      pts, metros:Math.round(metros), area:Math.round(area),
+      cuando:Date.now(), quien:S.quien||''});
+    n++;
+  }
+  await guardarTrazos(); cerrarHoja(); refrescar();
+  aviso(n+' área'+(n===1?'':'s')+' importada'+(n===1?'':'s')+
+        (flojos? ' · '+flojos+' con menos de 2 vértices, omitida'+(flojos===1?'':'s') : ''));
+}
+
+function preguntarGeoJSON(feats){
+  const conClase = feats.filter(f=>{
+    const c=String((f.properties||{}).clase||'').toLowerCase();
+    return c==='area'||c==='recorrido'||c==='linea';
+  });
+  const meter = async clase => {
+    if(clase==='finca'){
+      S.fincas={type:'FeatureCollection',features:feats};
+      S.fincasPropias=true; _zonaCache=null;
+      await guardarFincas(); await Store.set('fincasPropias',true);
+      cerrarHoja(); refrescar();
+      return aviso(feats.length+' fincas cargadas');
+    }
+    let n=0;
+    const hay=new Set(S.trazos.map(t=>t.nombre+'|'+(t.finca||'')));
+    feats.forEach((f,i)=>{
+      const pr=f.properties||{};
+      const g=f.geometry||{};
+      /* de Polygon se toma el anillo exterior; de LineString, la línea */
+      const co = g.type==='Polygon' ? g.coordinates[0]
+               : g.type==='MultiPolygon' ? g.coordinates[0][0]
+               : g.type==='LineString' ? g.coordinates
+               : g.type==='MultiLineString' ? g.coordinates[0] : null;
+      if(!co || co.length<2) return;
+      const pts=co.map(c=>[c[1],c[0]]);
+      const nom=String(pr.nombre||pr.name||pr.Name||('Área '+(i+1)));
+      const fin=String(pr.finca||pr.FINCA||'');
+      if(hay.has(nom+'|'+fin)) return;
+      const cl=String(pr.clase||'').toLowerCase();
+      const clase = cl.startsWith('rec')? 'recorrido'
+                  : cl.startsWith('lin')? 'linea'
+                  : /Line/.test(g.type)? 'linea' : 'area';
+      S.trazos.push({id:'t'+Date.now().toString(36)+Math.random().toString(36).slice(2,6)+i,
+        nombre:nom, clase, finca:fin, obs:String(pr.obs||pr.observacion||''),
+        pts, metros:Math.round(largoM(pts)),
+        area: clase==='area'? Math.round(areaM2(pts)) : 0,
+        cuando:Date.now(), quien:S.quien||''});
+      n++;
+    });
+    await guardarTrazos(); cerrarHoja(); refrescar();
+    aviso(n+' área'+(n===1?'':'s')+' importada'+(n===1?'':'s'));
+  };
+
+  /* Si el archivo ya lo dice en sus propiedades, no hay nada que preguntar */
+  if(conClase.length===feats.length) return meter('trazo');
+
+  abrirHoja(`
+    <h3>¿Qué es este archivo?</h3>
+    <p class="mini" style="margin:-6px 0 14px">Trae ${feats.length} figura${feats.length===1?'':'s'}. Dime qué son para guardarlas donde va.</p>
+    <button class="btn wide" data-gj="finca">Linderos de finca</button>
+    <p class="mini">Reemplaza las fincas que tengas cargadas. Es lo que se dibuja de fondo en el mapa.</p>
+    <button class="btn ghost wide" style="margin-top:12px" data-gj="trazo">Áreas o recorridos medidos</button>
+    <p class="mini">Se suman a los que ya tienes. Reservorios, franjas de retiro, rondas.</p>`);
+  const c=$('#sheetCard');
+  c.querySelectorAll('[data-gj]').forEach(b=>b.onclick=()=>meter(b.dataset.gj));
+}
+
+/* Los formatos de oficina empiezan con una firma reconocible. Vale más
+   mirarla que confiar en la extensión, que la gente cambia a mano. */
+function queArchivoEs(b, nombre, forzarCSV){
+  const n=(nombre||'').toLowerCase();
+  const hex=[...b.slice(0,4)].map(x=>x.toString(16).padStart(2,'0')).join('');
+
+  /* PK.. = un ZIP. Los .xlsx y .docx son ZIP por dentro. */
+  if(hex.startsWith('504b0304') || hex.startsWith('504b0506'))
+    return {malo:'Ese archivo es de Excel (.xlsx), no un CSV — aunque se llame .csv. '+
+                 'Ábrelo en Excel y usa Archivo → Guardar como → CSV UTF-8.'};
+
+  /* d0cf11e0 = formato antiguo de Office (.xls, .doc) */
+  if(hex.startsWith('d0cf11e0'))
+    return {malo:'Ese archivo es un Excel antiguo (.xls). Ábrelo y guárdalo como CSV UTF-8.'};
+
+  if(hex.startsWith('25504446'))
+    return {malo:'Eso es un PDF. Se necesita un CSV, un GeoJSON o un paquete de Rumbo.'};
+
+  if(hex.startsWith('89504e47') || hex.startsWith('ffd8ff'))
+    return {malo:'Eso es una imagen. Las fotos van dentro de una visita, no por aquí.'};
+
+  return {csv: !!forzarCSV || /\.(csv|txt|tsv)$/i.test(n)};
+}
+
 async function importarCSV(txt){
   const lineas=txt.replace(/^\ufeff/,'').split(/\r?\n/).filter(l=>l.trim());
   if(lineas.length<2) return aviso('El CSV está vacío');
@@ -5426,9 +5645,25 @@ async function importarCSV(txt){
     o.push(c); return o.map(s=>s.trim()); };
   const cab=corta(lineas[0]).map(h=>h.toLowerCase().replace(/[^a-z]/g,''));
   const idx=n=>cab.findIndex(h=>h.startsWith(n));
+
+  /* Excel a veces mete toda la línea en una sola celda entre comillas.
+     Se ve como un CSV pero no lo es, y sin este aviso no pasaba nada. */
+  if(cab.length===1 && lineas[0].includes(',')){
+    return aviso('El archivo quedó con todo en una sola columna. '+
+      'En Excel: Datos → Texto en columnas, separado por coma; o guárdalo de nuevo como CSV UTF-8.');
+  }
+
+  /* Si trae una columna "trazo", cada fila es un vértice de un área o
+     recorrido, no un punto suelto. Es el mismo archivo de Excel, con
+     otra cabecera. */
+  if(idx('trazo')>=0) return importarTrazosCSV(lineas, corta, cab, idx);
+
   const iN=idx('nombre')>=0?idx('nombre'):idx('name'), iT=idx('tipo'), iF=idx('finca'),
-        iLa=idx('lat'), iLo=idx('lon')>=0?idx('lon'):idx('long'), iO=idx('nota')>=0?idx('nota'):idx('obs');
-  if(iLa<0||iLo<0) return aviso('El CSV necesita columnas lat y lon');
+        iLa=idx('lat'), iLo=idx('lon')>=0?idx('lon'):idx('long'), iO=idx('nota')>=0?idx('nota'):idx('obs'),
+        iP=idx('permiso')>=0?idx('permiso'):idx('resoluc'), iV=idx('vence');
+  if(iLa<0||iLo<0)
+    return aviso('El CSV necesita columnas lat y lon. Encontré: '+
+      (cab.filter(Boolean).join(', ')||'ninguna columna reconocible'));
   const nuevos=[];
   lineas.slice(1).forEach(l=>{
     const v=corta(l);
@@ -5442,9 +5677,12 @@ async function importarCSV(txt){
     nuevos.push({id:idEstable(nom,fin),
       nombre:nom, tipo,
       finca:fin, lat:r.lat, lon:r.lon, notas:iO>=0?v[iO]:'',
+      permiso:iP>=0?v[iP]:'', vence:iV>=0?normalizarFecha(v[iV]):'',
       creado:new Date().toISOString()});
   });
-  if(!nuevos.length) return aviso('No se encontraron coordenadas válidas');
+  if(!nuevos.length)
+    return aviso('Ninguna fila tenía coordenadas válidas. Revisa que lat y lon '+
+      'sean números y que Excel no las haya convertido en fecha.');
   const n=fusionar(nuevos);
   await guardarPuntos(); cerrarHoja(); refrescar(); aviso(`${n} puntos importados`);
 }
